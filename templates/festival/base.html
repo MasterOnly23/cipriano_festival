@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Festival Pizza{% endblock %}</title>
+  <link rel="stylesheet" href="/static/festival/css/app.css">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <header class="topbar">
+    <a href="/" class="topbar-brand" aria-label="Cipriano Pizza">
+      <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-desktop">
+      <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-mobile">
+    </a>
+    {% if request.session.operator_id %}
+    <nav class="topbar-nav" aria-label="Navegacion principal">
+      {% if request.session.operator_role == "KITCHEN" or request.session.operator_role == "ADMIN" %}
+      <a href="/kitchen/" {% if request.path == "/kitchen/" %}class="active"{% endif %}>Cocina</a>
+      {% endif %}
+      {% if request.session.operator_role == "SALES" or request.session.operator_role == "ADMIN" %}
+      <a href="/sales/" {% if request.path == "/sales/" %}class="active"{% endif %}>Ventas</a>
+      <a href="/dashboard/" {% if request.path == "/dashboard/" %}class="active"{% endif %}>Dashboard</a>
+      {% endif %}
+      {% if request.session.operator_role == "BATCHES" or request.session.operator_role == "ADMIN" %}
+      <a href="/batches/" {% if request.path == "/batches/" %}class="active"{% endif %}>Lotes</a>
+      {% endif %}
+      {% if request.session.operator_role == "ADMIN" %}
+      <a href="/admin-ops/" {% if request.path == "/admin-ops/" %}class="active"{% endif %}>Admin Ops</a>
+      {% endif %}
+    </nav>
+    <div class="topbar-userbox">
+      <span class="topbar-user">Usuario: {{ request.session.operator_username }}</span>
+      <a class="topbar-logout" href="/logout/">Salir</a>
+    </div>
+    {% else %}
+    <nav class="topbar-nav">
+      <a href="/login/" class="active">Login</a>
+    </nav>
+    {% endif %}
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

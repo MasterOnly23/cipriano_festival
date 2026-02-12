@@ -1,0 +1,55 @@
+{% extends "festival/base.html" %}
+{% block title %}Lotes - Festival Pizza{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Generar lote del dia</h1>
+  <div class="grid three">
+    <label>
+      Dia codigo
+      <div class="day-code-inline">
+        <span class="day-prefix">D</span>
+        <input id="dayNumber" type="number" min="1" step="1" value="1">
+      </div>
+    </label>
+    <label>
+      Prefijo sabor
+      <input id="flavorPrefix" type="text" placeholder="Se completa segun sabor" readonly>
+    </label>
+    <label>
+      Sabor
+      <select id="flavorName">
+        <option value="" selected>Seleccionar sabor</option>
+        <option value="DIAVOLA">DIAVOLA</option>
+        <option value="DIAVOLA A MI MANERA">DIAVOLA A MI MANERA</option>
+        <option value="JAMON Y QUESO">JAMON Y QUESO</option>
+      </select>
+    </label>
+    <label>Cantidad<input id="quantity" type="number" min="1" value="100"></label>
+    <label>Precio<input id="price" type="number" min="0" step="0.01" value="40000"></label>
+    <label>
+      Tamano
+      <select id="size">
+        <option value="GRANDE" selected>GRANDE</option>
+        <option value="MEDIANA">MEDIANA</option>
+        <option value="CHICA">CHICA</option>
+      </select>
+    </label>
+    <label>Operador<input id="actorName" type="text" value="{{ operator.username }}" readonly></label>
+    <label>Notas<input id="notes" type="text" placeholder="Opcional"></label>
+    <label>Nro inicial<input id="startNumber" type="text" value="auto" readonly></label>
+    <label>
+      PIN admin (para Nro inicial manual)
+      <input id="startNumberAdminPin" type="password" placeholder="PIN admin" autocomplete="off">
+    </label>
+    <div class="admin-pin-actions">
+      <button id="unlockStartNumberBtn" type="button" class="btn btn-alt">Habilitar Nro inicial manual</button>
+      <span id="startNumberState" class="muted">Nro inicial bloqueado en auto</span>
+    </div>
+  </div>
+  <button id="generateBtn" class="btn">Generar lote</button>
+  <p id="batchMsg" class="muted"></p>
+  <p><a id="pdfLink" href="#" target="_blank" class="hidden">Descargar etiquetas PDF</a></p>
+</section>
+
+<script src="/static/festival/js/batches.js"></script>
+{% endblock %}

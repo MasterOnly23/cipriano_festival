@@ -1,0 +1,103 @@
+{% extends "festival/base.html" %}
+{% block title %}Dashboard - Festival Pizza{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Dashboard en tiempo real</h1>
+  <p class="muted">Operador: <strong>{{ operator.username }}</strong></p>
+  <div class="kpis">
+    <article class="kpi-prep"><h2>Preparacion</h2><p id="kpi-preparacion">0</p></article>
+    <article class="kpi-ready"><h2>Lista</h2><p id="kpi-lista">0</p></article>
+    <article class="kpi-sold"><h2>Vendida</h2><p id="kpi-vendida">0</p></article>
+    <article class="kpi-cancel"><h2>Cancelada</h2><p id="kpi-cancelada">0</p></article>
+    <article class="kpi-loss"><h2>Merma</h2><p id="kpi-merma">0</p></article>
+    <article class="kpi-revenue"><h2>Facturacion</h2><p id="kpi-revenue">$0</p></article>
+  </div>
+
+  <h2>Ultimos movimientos</h2>
+  <div class="grid three dashboard-filters">
+    <label>
+      Modo
+      <select id="filterMode">
+        <option value="">Todos</option>
+        <option value="KITCHEN">KITCHEN</option>
+        <option value="SALES">SALES</option>
+        <option value="ADMIN">ADMIN</option>
+        <option value="UNDO">UNDO</option>
+      </select>
+    </label>
+    <label>
+      Estado destino
+      <select id="filterStatus">
+        <option value="">Todos</option>
+        <option value="PREPARACION">PREPARACION</option>
+        <option value="LISTA">LISTA</option>
+        <option value="VENDIDA">VENDIDA</option>
+        <option value="CANCELADA">CANCELADA</option>
+        <option value="MERMA">MERMA</option>
+      </select>
+    </label>
+    <label>
+      Buscar ID
+      <input id="filterPizzaId" type="text" placeholder="Ej: MUZ-01" autocapitalize="characters" spellcheck="false">
+    </label>
+    <label>
+      Desde (venta)
+      <input id="filterDateFrom" type="date">
+    </label>
+    <label>
+      Hasta (venta)
+      <input id="filterDateTo" type="date">
+    </label>
+    <label>
+      Sabor (venta)
+      <select id="filterFlavor">
+        <option value="">Todos</option>
+        <option value="DIAVOLA">DIAVOLA</option>
+        <option value="DIAVOLA A MI MANERA">DIAVOLA A MI MANERA</option>
+        <option value="JAMON Y QUESO">JAMON Y QUESO</option>
+      </select>
+    </label>
+  </div>
+  <div class="filter-actions">
+    <button id="applyFiltersBtn" class="btn" type="button">Aplicar filtros</button>
+    <button id="clearFiltersBtn" class="btn btn-alt" type="button">Limpiar</button>
+    <button id="exportSalesBtn" class="btn btn-alt" type="button">Exportar ventas Excel</button>
+  </div>
+  <div class="table-wrap">
+    <table class="events-table">
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>ID</th>
+          <th>Modo</th>
+          <th>Transicion</th>
+          <th>Operador</th>
+        </tr>
+      </thead>
+      <tbody id="eventsBody"></tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <button id="prevPageBtn" class="btn btn-alt" type="button">Anterior</button>
+    <span id="pageInfo" class="muted">Pagina 1</span>
+    <button id="nextPageBtn" class="btn btn-alt" type="button">Siguiente</button>
+  </div>
+</section>
+
+{% if operator.role == "ADMIN" %}
+<section class="panel">
+  <h2>Acciones Admin</h2>
+  <div class="grid two">
+    <label>
+      PIN
+      <input id="adminPin" type="password" placeholder="PIN">
+    </label>
+    <button id="undoBtn" class="btn btn-alt">Deshacer ultimo</button>
+  </div>
+  <p id="adminMsg" class="muted"></p>
+</section>
+{% endif %}
+
+<script src="/static/festival/js/dashboard.js"></script>
+{% endblock %}

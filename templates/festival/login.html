@@ -1,0 +1,31 @@
+{% extends "festival/base.html" %}
+{% block title %}Login - Festival Pizza{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<section class="panel auth-panel">
+  <div class="auth-logo-wrap">
+    <img src="/static/assets/logoLargo.png" alt="Cipriano Pizza" class="auth-logo">
+  </div>
+  <h1>Ingreso de operador</h1>
+  <p class="muted">Ingresar con usuario y PIN.</p>
+  {% if denied %}
+  <p class="feedback error">No tienes permisos para esa pantalla.</p>
+  {% endif %}
+  {% if error %}
+  <p class="feedback error">{{ error }}</p>
+  {% endif %}
+  <form method="post" class="auth-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>
+      Usuario
+      <input type="text" name="username" placeholder="cocina | ventas | lotes | admin" required>
+    </label>
+    <label>
+      PIN
+      <input type="password" name="pin" placeholder="PIN" required>
+    </label>
+    <button type="submit" class="btn btn-wide">Entrar</button>
+  </form>
+</section>
+{% endblock %}

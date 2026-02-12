@@ -1,0 +1,50 @@
+{% extends "festival/base.html" %}
+{% block title %}Admin Ops - Festival Pizza{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Operaciones administrativas</h1>
+  <p class="muted">Este menu requiere PIN admin para autorizar operaciones sensibles.</p>
+
+  <div class="grid three">
+    <label>
+      PIN admin
+      <input id="adminPin" type="password" placeholder="PIN" autocomplete="off">
+    </label>
+    <label>
+      Operador admin
+      <input id="adminActor" type="text" value="{{ operator.username }}" readonly>
+    </label>
+    <div class="admin-pin-actions">
+      <button id="verifyPinBtn" type="button" class="btn btn-alt">Verificar PIN</button>
+      <span id="pinStatus" class="muted">Bloqueado</span>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Marcar estado manual</h2>
+  <div class="grid three">
+    <label>
+      ID pizza
+      <input id="pizzaIdInput" type="text" placeholder="Ej: D1-MUZ-0123" autocapitalize="characters" spellcheck="false">
+    </label>
+    <label>
+      Estado destino
+      <select id="adminStatusSelect">
+        <option value="MERMA">MERMA</option>
+        <option value="CANCELADA">CANCELADA</option>
+      </select>
+    </label>
+    <button id="setStatusBtn" type="button" class="btn">Aplicar estado</button>
+  </div>
+  <p id="statusMsg" class="muted"></p>
+</section>
+
+<section class="panel">
+  <h2>Correcciones</h2>
+  <button id="undoBtn" type="button" class="btn btn-alt">Deshacer ultimo evento</button>
+  <p id="undoMsg" class="muted"></p>
+</section>
+
+<script src="/static/festival/js/admin_ops.js"></script>
+{% endblock %}
