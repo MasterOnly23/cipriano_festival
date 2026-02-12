@@ -5,6 +5,7 @@ import qrcode
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfgen import canvas
 
 from .models import PizzaItem
@@ -15,6 +16,44 @@ def _make_qr_image(value: str):
     qr.add_data(value)
     qr.make(fit=True)
     return qr.make_image(fill_color="black", back_color="white")
+
+
+def _wrap_text(
+    text: str,
+    *,
+    font_name: str,
+    font_size: int,
+    max_width: float,
+    max_lines: int = 2,
+) -> list[str]:
+    words = (text or "").split()
+    if not words:
+        return [text or ""]
+
+    lines: list[str] = []
+    current = words[0]
+
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if pdfmetrics.stringWidth(candidate, font_name, font_size) <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+            if len(lines) == max_lines - 1:
+                break
+
+    remaining_words = words[len(" ".join(lines + [current]).split()):]
+    if remaining_words:
+        current = f"{current} {' '.join(remaining_words)}"
+
+    if pdfmetrics.stringWidth(current, font_name, font_size) > max_width:
+        while current and pdfmetrics.stringWidth(f"{current}...", font_name, font_size) > max_width:
+            current = current[:-1]
+        current = f"{current}..."
+
+    lines.append(current)
+    return lines[:max_lines]
 
 
 def build_labels_pdf(items: Iterable[PizzaItem]) -> bytes:
@@ -41,11 +80,26 @@ def build_labels_pdf(items: Iterable[PizzaItem]) -> bytes:
         c.rect(x + 2 * mm, y + 2 * mm, label_w - 4 * mm, label_h - 4 * mm)
         c.drawImage(img_reader, x + 4 * mm, y + 6 * mm, 26 * mm, 26 * mm, preserveAspectRatio=True)
 
+        text_x = x + 33 * mm
+        max_text_width = label_w - 36 * mm
+        flavor_text = f"Sabor: {item.flavor or '-'}"
+        flavor_lines = _wrap_text(
+            flavor_text,
+            font_name="Helvetica",
+            font_size=10,
+            max_width=max_text_width,
+            max_lines=2,
+        )
+
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(x + 33 * mm, y + 25 * mm, item.id)
+        c.drawString(text_x, y + 25 * mm, item.id)
         c.setFont("Helvetica", 10)
-        c.drawString(x + 33 * mm, y + 18 * mm, f"Sabor: {item.flavor or '-'}")
-        c.drawString(x + 33 * mm, y + 12 * mm, f"Precio: ${item.price}")
+        flavor_y = y + 18 * mm
+        for line in flavor_lines:
+            c.drawString(text_x, flavor_y, line)
+            flavor_y -= 5 * mm
+
+        c.drawString(text_x, flavor_y - 1 * mm, f"Precio: ${item.price}")
 
         count += 1
         x += label_w
