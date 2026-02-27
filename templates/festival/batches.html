@@ -51,5 +51,25 @@
   <p><a id="pdfLink" href="#" target="_blank" class="hidden">Descargar etiquetas PDF</a></p>
 </section>
 
+<section class="panel">
+  <h2>Meseros (QR)</h2>
+  <p class="muted">Crea un mesero y descarga su QR unico para el doble escaneo en ventas.</p>
+  <div class="grid three">
+    <label>
+      Nombre mesero
+      <input id="waiterName" type="text" placeholder="Ej: Juan Perez" autocapitalize="characters" spellcheck="false">
+    </label>
+    <label>
+      Operador
+      <input id="waiterActorName" type="text" value="{{ operator.username }}" readonly>
+    </label>
+    <div class="admin-pin-actions">
+      <button id="createWaiterBtn" type="button" class="btn">Crear mesero + QR</button>
+    </div>
+  </div>
+  <p id="waiterMsg" class="muted"></p>
+  <p><a id="waiterPdfLink" href="#" target="_blank" class="hidden">Descargar QR mesero</a></p>
+</section>
+
 <script src="/static/festival/js/batches.js"></script>
 {% endblock %}

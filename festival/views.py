@@ -20,10 +20,10 @@ from .auth_utils import (
     require_roles_api,
     require_roles_web,
 )
-from .models import PizzaItem, PizzaStatus, RoleType, ScanEvent
-from .qr_pdf import build_labels_pdf
-from .serializers import PizzaItemSerializer, ScanEventSerializer
-from .services import Actor, TransitionError, admin_set_status, create_batch, process_scan, undo_last
+from .models import PizzaItem, PizzaStatus, RoleType, ScanEvent, Waiter
+from .qr_pdf import build_labels_pdf, build_waiters_labels_pdf
+from .serializers import PizzaItemSerializer, ScanEventSerializer, WaiterSerializer
+from .services import Actor, TransitionError, admin_set_status, create_batch, create_waiter, process_scan, undo_last
 
 
 def _parse_iso_date(value: str, field_name: str) -> tuple[date | None, str | None]:
@@ -137,6 +137,7 @@ class ScanAPIView(APIView):
         mode = (request.data.get("mode") or "").strip().upper()
         flavor_if_empty = (request.data.get("flavor_if_empty") or "").strip().upper()
         override_pin = (request.data.get("override_pin") or "").strip()
+        waiter_code = (request.data.get("waiter_code") or "").strip().upper()
 
         if not pizza_id:
             return Response({"ok": False, "error": "ID requerido"}, status=status.HTTP_400_BAD_REQUEST)
@@ -155,6 +156,7 @@ class ScanAPIView(APIView):
                 actor=Actor(name=operator.username, role=ROLE_LABEL_MAP.get(operator.role, RoleType.ADMIN)),
                 flavor_if_empty=flavor_if_empty,
                 override_pin=override_pin,
+                waiter_code=waiter_code,
             )
         except TransitionError as exc:
             return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -167,6 +169,54 @@ class ScanAPIView(APIView):
                 "event": ScanEventSerializer(event).data,
             }
         )
+
+
+class WaiterAPIView(APIView):
+    def get(self, request):
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN", "SALES"])
+        if error:
+            return Response(error, status=error_status)
+        waiters = Waiter.objects.filter(is_active=True).order_by("name")
+        return Response({"ok": True, "waiters": WaiterSerializer(waiters, many=True).data})
+
+    def post(self, request):
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+
+        name = (request.data.get("name") or "").strip()
+        try:
+            waiter = create_waiter(name=name, actor_name=operator.username)
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "ok": True,
+                "waiter": WaiterSerializer(waiter).data,
+                "labels_pdf_url": f"/api/waiters/labels.pdf?codes={waiter.code}",
+            }
+        )
+
+
+class WaiterLabelsAPIView(APIView):
+    def get(self, request):
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+
+        codes_raw = (request.GET.get("codes") or "").strip().upper()
+        if not codes_raw:
+            return Response({"ok": False, "error": "codes requerido"}, status=status.HTTP_400_BAD_REQUEST)
+        codes = [code.strip() for code in codes_raw.split(",") if code.strip()]
+        waiters = list(Waiter.objects.filter(code__in=codes, is_active=True).order_by("name", "code"))
+        if not waiters:
+            return Response({"ok": False, "error": "Meseros no encontrados"}, status=status.HTTP_404_NOT_FOUND)
+
+        pdf_data = build_waiters_labels_pdf(waiters)
+        response = HttpResponse(pdf_data, content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="waiters-labels.pdf"'
+        return response
 
 
 class BatchGenerateAPIView(APIView):
@@ -289,6 +339,7 @@ class DashboardDataAPIView(APIView):
         to_status = (request.GET.get("to_status") or "").strip().upper()
         pizza_id = (request.GET.get("pizza_id") or "").strip().upper()
         flavor = (request.GET.get("flavor") or "").strip().upper()
+        waiter_name = (request.GET.get("waiter_name") or "").strip().upper()
         date_from, date_from_error = _parse_iso_date(request.GET.get("date_from"), "date_from")
         date_to, date_to_error = _parse_iso_date(request.GET.get("date_to"), "date_to")
         if date_from_error:
@@ -301,7 +352,7 @@ class DashboardDataAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        sales_filter_active = bool(flavor or date_from or date_to)
+        sales_filter_active = bool(flavor or waiter_name or date_from or date_to)
         if sales_filter_active and not mode:
             mode = "SALES"
         if sales_filter_active and not to_status:
@@ -315,6 +366,8 @@ class DashboardDataAPIView(APIView):
         revenue_qs = PizzaItem.objects.filter(status=PizzaStatus.VENDIDA)
         if flavor:
             revenue_qs = revenue_qs.filter(flavor=flavor)
+        if waiter_name:
+            revenue_qs = revenue_qs.filter(sold_by__icontains=waiter_name)
         if date_from:
             revenue_qs = revenue_qs.filter(sold_at__date__gte=date_from)
         if date_to:
@@ -330,6 +383,8 @@ class DashboardDataAPIView(APIView):
             latest_qs = latest_qs.filter(pizza__id__icontains=pizza_id)
         if flavor:
             latest_qs = latest_qs.filter(pizza__flavor=flavor)
+        if waiter_name:
+            latest_qs = latest_qs.filter(waiter_name__icontains=waiter_name)
         if date_from:
             latest_qs = latest_qs.filter(pizza__sold_at__date__gte=date_from)
         if date_to:
@@ -373,6 +428,7 @@ class DashboardDataAPIView(APIView):
                     "to_status": to_status,
                     "pizza_id": pizza_id,
                     "flavor": flavor,
+                    "waiter_name": waiter_name,
                     "date_from": date_from.isoformat() if date_from else "",
                     "date_to": date_to.isoformat() if date_to else "",
                 },
@@ -387,6 +443,7 @@ class SalesExportXLSAPIView(APIView):
             return Response(error, status=error_status)
 
         flavor = (request.GET.get("flavor") or "").strip().upper()
+        waiter_name = (request.GET.get("waiter_name") or "").strip().upper()
         date_from, date_from_error = _parse_iso_date(request.GET.get("date_from"), "date_from")
         date_to, date_to_error = _parse_iso_date(request.GET.get("date_to"), "date_to")
         if date_from_error:
@@ -402,6 +459,8 @@ class SalesExportXLSAPIView(APIView):
         sales_qs = PizzaItem.objects.filter(status=PizzaStatus.VENDIDA).order_by("sold_at", "id")
         if flavor:
             sales_qs = sales_qs.filter(flavor=flavor)
+        if waiter_name:
+            sales_qs = sales_qs.filter(sold_by__icontains=waiter_name)
         if date_from:
             sales_qs = sales_qs.filter(sold_at__date__gte=date_from)
         if date_to:
@@ -412,7 +471,10 @@ class SalesExportXLSAPIView(APIView):
             filename += f"-{date_from.isoformat() if date_from else 'inicio'}-{date_to.isoformat() if date_to else 'hoy'}"
         if flavor:
             filename += f"-{flavor}"
+        if waiter_name:
+            filename += f"-{waiter_name}"
         flavor_label = flavor if flavor else "TODOS LOS SABORES"
+        waiter_label = waiter_name if waiter_name else "TODOS LOS MESEROS"
         from_label = date_from.isoformat() if date_from else "INICIO"
         to_label = date_to.isoformat() if date_to else "HOY"
         total_revenue = Decimal("0")
@@ -448,7 +510,7 @@ class SalesExportXLSAPIView(APIView):
       <td colspan="7" style="background:#924E37;color:#FFFFFF;font-size:16pt;font-weight:bold;text-align:center;">CIPRIANO - REPORTE DE VENTAS</td>
     </tr>
     <tr>
-      <td colspan="7" style="background:#F4E8CD;color:#1B3240;font-weight:bold;text-align:center;">Filtro: {escape(flavor_label)} | Periodo: {escape(from_label)} a {escape(to_label)}</td>
+      <td colspan="7" style="background:#F4E8CD;color:#1B3240;font-weight:bold;text-align:center;">Filtro sabor: {escape(flavor_label)} | Mesero: {escape(waiter_label)} | Periodo: {escape(from_label)} a {escape(to_label)}</td>
     </tr>
     <tr><td colspan="7" style="background:#FFFFFF;"></td></tr>
     <tr style="background:#1B3240;color:#FFFFFF;font-weight:bold;text-align:center;">
@@ -458,7 +520,7 @@ class SalesExportXLSAPIView(APIView):
       <td>Precio</td>
       <td>Fecha venta</td>
       <td>Hora venta</td>
-      <td>Vendido por</td>
+      <td>Mesero</td>
     </tr>
     {''.join(rows_html)}
     <tr><td colspan="7" style="background:#FFFFFF;"></td></tr>

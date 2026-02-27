@@ -7,7 +7,7 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from .models import Batch, PizzaItem, PizzaStatus, RoleType, ScanEvent
+from .models import Batch, PizzaItem, PizzaStatus, RoleType, ScanEvent, Waiter
 
 
 class TransitionError(Exception):
@@ -40,6 +40,8 @@ def _create_event(
     from_status: str,
     to_status: str,
     mode: str,
+    waiter_code: str = "",
+    waiter_name: str = "",
     note: str = "",
 ) -> ScanEvent:
     return ScanEvent.objects.create(
@@ -49,6 +51,8 @@ def _create_event(
         actor_role=actor.role,
         from_status=from_status,
         to_status=to_status,
+        waiter_code=waiter_code,
+        waiter_name=waiter_name,
         note=note,
     )
 
@@ -61,6 +65,7 @@ def process_scan(
     actor: Actor,
     flavor_if_empty: str = "",
     override_pin: str = "",
+    waiter_code: str = "",
 ) -> tuple[PizzaItem, ScanEvent]:
     try:
         item = PizzaItem.objects.select_for_update().get(pk=pizza_id)
@@ -81,6 +86,15 @@ def process_scan(
         else:
             raise TransitionError(f"No se puede pasar a LISTA desde {item.status}")
     elif mode == "SALES":
+        waiter = None
+        waiter_code = waiter_code.strip().upper()
+        if not waiter_code:
+            raise TransitionError("Debes escanear primero el QR del mesero")
+        try:
+            waiter = Waiter.objects.get(code=waiter_code, is_active=True)
+        except Waiter.DoesNotExist as exc:
+            raise TransitionError(f"Mesero no encontrado o inactivo: {waiter_code}") from exc
+
         if item.status == PizzaStatus.LISTA:
             item.status = PizzaStatus.VENDIDA
         elif override_pin == settings.ADMIN_OVERRIDE_PIN:
@@ -91,6 +105,8 @@ def process_scan(
         raise TransitionError(f"Modo invalido: {mode}")
 
     _set_transition_fields(item, item.status, actor.name)
+    if mode == "SALES" and waiter:
+        item.sold_by = waiter.name
     item.save()
     event = _create_event(
         item=item,
@@ -98,6 +114,8 @@ def process_scan(
         from_status=from_status,
         to_status=item.status,
         mode=mode,
+        waiter_code=waiter.code if mode == "SALES" else "",
+        waiter_name=waiter.name if mode == "SALES" else "",
         note="override" if override_pin == settings.ADMIN_OVERRIDE_PIN else "",
     )
     return item, event
@@ -207,3 +225,18 @@ def create_batch(
         created.append(item)
 
     return batch, created
+
+
+@transaction.atomic
+def create_waiter(*, name: str, actor_name: str) -> Waiter:
+    cleaned = (name or "").strip().upper()
+    if not cleaned:
+        raise TransitionError("Nombre de mesero requerido")
+
+    last_code = Waiter.objects.aggregate(last=Max("code")).get("last")
+    if last_code and last_code.startswith("W-") and last_code.rsplit("-", 1)[-1].isdigit():
+        next_number = int(last_code.rsplit("-", 1)[-1]) + 1
+    else:
+        next_number = 1
+    code = f"W-{next_number:04d}"
+    return Waiter.objects.create(code=code, name=cleaned, created_by=actor_name)

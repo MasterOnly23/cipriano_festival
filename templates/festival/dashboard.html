@@ -58,6 +58,10 @@
         <option value="JAMON Y QUESO">JAMON Y QUESO</option>
       </select>
     </label>
+    <label>
+      Mesero (venta)
+      <input id="filterWaiter" type="text" placeholder="Ej: JUAN" autocapitalize="characters" spellcheck="false">
+    </label>
   </div>
   <div class="filter-actions">
     <button id="applyFiltersBtn" class="btn" type="button">Aplicar filtros</button>
@@ -73,6 +77,7 @@
           <th>Modo</th>
           <th>Transicion</th>
           <th>Operador</th>
+          <th>Mesero</th>
         </tr>
       </thead>
       <tbody id="eventsBody"></tbody>

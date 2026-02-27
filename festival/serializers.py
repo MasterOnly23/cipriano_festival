@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import PizzaItem, ScanEvent
+from .models import PizzaItem, ScanEvent, Waiter
 
 
 class PizzaItemSerializer(serializers.ModelSerializer):
@@ -31,7 +31,15 @@ class ScanEventSerializer(serializers.ModelSerializer):
             "actor_role",
             "from_status",
             "to_status",
+            "waiter_code",
+            "waiter_name",
             "note",
             "created_at",
             "undone",
         ]
+
+
+class WaiterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Waiter
+        fields = ["id", "code", "name", "is_active", "created_at"]

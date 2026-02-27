@@ -56,6 +56,20 @@ class Batch(models.Model):
         return self.code
 
 
+class Waiter(models.Model):
+    code = models.CharField(max_length=24, unique=True)
+    name = models.CharField(max_length=80)
+    is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "code"]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.code})"
+
+
 class PizzaItem(models.Model):
     id = models.CharField(primary_key=True, max_length=32)
     flavor = models.CharField(max_length=40, blank=True)
@@ -91,6 +105,8 @@ class ScanEvent(models.Model):
     actor_role = models.CharField(max_length=16, choices=RoleType.choices)
     from_status = models.CharField(max_length=16, choices=PizzaStatus.choices)
     to_status = models.CharField(max_length=16, choices=PizzaStatus.choices)
+    waiter_code = models.CharField(max_length=24, blank=True)
+    waiter_name = models.CharField(max_length=80, blank=True)
     note = models.CharField(max_length=200, blank=True)
     undone = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

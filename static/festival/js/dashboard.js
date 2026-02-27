@@ -12,6 +12,7 @@
   const filterDateFrom = document.getElementById("filterDateFrom");
   const filterDateTo = document.getElementById("filterDateTo");
   const filterFlavor = document.getElementById("filterFlavor");
+  const filterWaiter = document.getElementById("filterWaiter");
   const applyFiltersBtn = document.getElementById("applyFiltersBtn");
   const clearFiltersBtn = document.getElementById("clearFiltersBtn");
   const exportSalesBtn = document.getElementById("exportSalesBtn");
@@ -26,6 +27,7 @@
     date_from: "",
     date_to: "",
     flavor: "",
+    waiter_name: "",
   };
 
   function setCount(id, value) {
@@ -39,7 +41,7 @@
     eventsBody.innerHTML = "";
     if (!events || events.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="5">Sin movimientos para estos filtros.</td>`;
+      tr.innerHTML = `<td colspan="6">Sin movimientos para estos filtros.</td>`;
       eventsBody.appendChild(tr);
       return;
     }
@@ -53,6 +55,7 @@
         <td data-label="Modo"><span class="mode-badge mode-${modeClass}">${ev.mode}</span></td>
         <td data-label="Transicion">${ev.from_status} -> <span class="status-pill status-${toStatusClass}">${ev.to_status}</span></td>
         <td data-label="Operador">${ev.actor_name || "-"}</td>
+        <td data-label="Mesero">${ev.waiter_name || "-"}</td>
       `;
       eventsBody.appendChild(tr);
     }
@@ -92,6 +95,9 @@
     if (filters.flavor) {
       params.set("flavor", filters.flavor);
     }
+    if (filters.waiter_name) {
+      params.set("waiter_name", filters.waiter_name);
+    }
     return params.toString();
   }
 
@@ -102,6 +108,7 @@
     filters.date_from = filterDateFrom.value.trim();
     filters.date_to = filterDateTo.value.trim();
     filters.flavor = filterFlavor.value.trim().toUpperCase();
+    filters.waiter_name = filterWaiter.value.trim().toUpperCase();
   }
 
   async function loadDashboard() {
@@ -176,6 +183,7 @@
     filterDateFrom.value = "";
     filterDateTo.value = "";
     filterFlavor.value = "";
+    filterWaiter.value = "";
     syncFiltersFromInputs();
     currentPage = 1;
     await loadDashboard();
@@ -193,6 +201,9 @@
   filterPizzaId.addEventListener("input", () => {
     filterPizzaId.value = filterPizzaId.value.toUpperCase();
   });
+  filterWaiter.addEventListener("input", () => {
+    filterWaiter.value = filterWaiter.value.toUpperCase();
+  });
 
   exportSalesBtn.addEventListener("click", () => {
     syncFiltersFromInputs();
@@ -205,6 +216,9 @@
     }
     if (filters.flavor) {
       params.set("flavor", filters.flavor);
+    }
+    if (filters.waiter_name) {
+      params.set("waiter_name", filters.waiter_name);
     }
     window.location.href = `/api/dashboard/sales-export.xls?${params.toString()}`;
   });

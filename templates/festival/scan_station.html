@@ -5,10 +5,22 @@
 <section class="panel station-panel">
   <h1>{{ title }}</h1>
   <p class="muted">Escanea QR o codigo (scanner USB + Enter). El input se mantiene enfocado.</p>
+  {% if mode == "SALES" %}
+  <p class="muted">Doble escaneo ventas: primero QR de mesero (W-XXXX), luego QR de pizza.</p>
+  {% endif %}
   <p class="muted">Operador: <strong>{{ operator.username }}</strong></p>
 
   <div class="grid two">
     {% if mode == "SALES" %}
+    <div class="result-card waiter-card">
+      <div><strong>Mesero activo:</strong> <span id="activeWaiterName">-</span></div>
+      <div><strong>Codigo:</strong> <span id="activeWaiterCode">-</span></div>
+      <div><button id="clearWaiterBtn" type="button" class="btn btn-alt">Limpiar mesero activo</button></div>
+    </div>
+    <div class="result-card waiter-card">
+      <div><strong>Pizza pendiente:</strong> <span id="pendingPizzaId">-</span></div>
+      <div><button id="clearPendingBtn" type="button" class="btn btn-alt">Cancelar pendiente</button></div>
+    </div>
     <label>
       PIN override (solo ventas)
       <input id="overridePin" type="password" placeholder="PIN admin" autocomplete="off">
