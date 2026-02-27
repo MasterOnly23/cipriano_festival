@@ -3,15 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Festival Pizza{% endblock %}</title>
-  <link rel="stylesheet" href="/static/festival/css/app.css">
+  <title>{% block title %}Cipriano Festival{% endblock %}</title>
+  <link rel="stylesheet" href="/static/festival/css/app.css?v=festival-nav-2">
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <header class="topbar">
-    <a href="/" class="topbar-brand" aria-label="Cipriano Pizza">
+    <a href="/" class="topbar-brand" aria-label="Cipriano Festival">
       <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-desktop">
       <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-mobile">
+      <span class="brand-copy">
+        <strong>Cipriano Festival</strong>
+        <small>Operacion interna</small>
+      </span>
     </a>
+    <div class="topbar-title">Cipriano Festival</div>
     {% if request.session.operator_id %}
     <nav class="topbar-nav" aria-label="Navegacion principal">
       {% if request.session.operator_role == "KITCHEN" or request.session.operator_role == "ADMIN" %}

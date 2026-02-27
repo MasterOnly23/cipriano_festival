@@ -69,11 +69,33 @@ h2 {
 .topbar-brand {
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   padding: 4px 8px;
   border-radius: 10px;
   background: linear-gradient(180deg, #f6ead0, #efe0c1);
   border: 1px solid #dbc39a;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.brand-copy {
+  display: grid;
+  line-height: 1.05;
+  min-width: 0;
+}
+
+.brand-copy strong {
+  color: var(--brand-deep);
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+}
+
+.brand-copy small {
+  color: #2e4a59;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 700;
 }
 
 .brand-logo {
@@ -91,6 +113,16 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.topbar-title {
+  display: none;
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--brand-deep);
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .topbar-nav a {
@@ -590,11 +622,53 @@ button:disabled {
   }
 
   .topbar {
-    padding: 10px 12px;
+    padding: 10px 12px 12px;
+    gap: 10px;
   }
 
   .topbar-brand {
-    padding: 6px 12px;
+    width: 100%;
+    justify-content: center;
+    padding: 6px 10px;
+  }
+
+  .topbar-title {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-size: 20px;
+    line-height: 1;
+    margin-top: -2px;
+  }
+
+  .brand-copy {
+    display: none;
+  }
+
+  .topbar-nav {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .topbar-nav a {
+    width: 100%;
+    text-align: center;
+  }
+
+  .topbar-userbox {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .topbar-user {
+    font-size: 18px;
+  }
+
+  .topbar-logout {
+    padding: 8px 10px;
   }
 
   .scan-input {
