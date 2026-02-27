@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Cipriano Festival{% endblock %}</title>
-  <link rel="stylesheet" href="/static/festival/css/app.css?v=festival-nav-2">
+  <title>{% block title %}Cipriano{% endblock %}</title>
+  <link rel="stylesheet" href="/static/festival/css/app.css?v=festival-nav-3">
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="branding-{{ request.session.active_branding|default:'festival'|lower }} {% block body_class %}{% endblock %}">
   <header class="topbar">
-    <a href="/" class="topbar-brand" aria-label="Cipriano Festival">
+    <a href="/" class="topbar-brand" aria-label="Cipriano">
       <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-desktop">
       <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-mobile">
       <span class="brand-copy">
-        <strong>Cipriano Festival</strong>
+        <strong>{% if request.session.active_branding == "BURGERS" %}Cipriano Burgers{% else %}Cipriano Festival{% endif %}</strong>
         <small>Operacion interna</small>
       </span>
     </a>
-    <div class="topbar-title">Cipriano Festival</div>
+    <div class="topbar-title">{% if request.session.active_branding == "BURGERS" %}Cipriano Burgers{% else %}Cipriano Festival{% endif %}</div>
     {% if request.session.operator_id %}
     <nav class="topbar-nav" aria-label="Navegacion principal">
       {% if request.session.operator_role == "KITCHEN" or request.session.operator_role == "ADMIN" %}
@@ -31,6 +31,7 @@
       {% endif %}
       {% if request.session.operator_role == "ADMIN" %}
       <a href="/admin-ops/" {% if request.path == "/admin-ops/" %}class="active"{% endif %}>Admin Ops</a>
+      <a href="/branding/select?next={{ request.path|urlencode }}" {% if request.path == "/branding/select" %}class="active"{% endif %}>Cambiar branding</a>
       {% endif %}
     </nav>
     <div class="topbar-userbox">

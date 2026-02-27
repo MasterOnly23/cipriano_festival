@@ -1,10 +1,10 @@
 {% extends "festival/base.html" %}
-{% block title %}Login - Cipriano Festival{% endblock %}
+{% block title %}Login - Cipriano{% endblock %}
 {% block body_class %}login-page{% endblock %}
 {% block content %}
 <section class="panel auth-panel">
   <div class="auth-logo-wrap">
-    <img src="/static/assets/logoLargo.png" alt="Cipriano Festival" class="auth-logo">
+    <img src="/static/assets/logoLargo.png" alt="Cipriano" class="auth-logo">
   </div>
   <h1>Ingreso de operador</h1>
   <p class="muted">Ingresar con usuario y PIN.</p>
@@ -19,7 +19,7 @@
     <input type="hidden" name="next" value="{{ next }}">
     <label>
       Usuario
-      <input type="text" name="username" placeholder="cocina | ventas | lotes | admin" required>
+      <input type="text" name="username" placeholder="cocina | ventas | lotes | cocinaburger | ventasburger | lotesburger | admin" required>
     </label>
     <label>
       PIN

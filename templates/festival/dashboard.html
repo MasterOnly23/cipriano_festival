@@ -1,5 +1,5 @@
 {% extends "festival/base.html" %}
-{% block title %}Dashboard - Cipriano Festival{% endblock %}
+{% block title %}Dashboard - Cipriano{% endblock %}
 {% block body_class %}dashboard-page{% endblock %}
 {% block content %}
 <section class="panel">
@@ -39,7 +39,7 @@
     </label>
     <label>
       Buscar ID
-      <input id="filterPizzaId" type="text" placeholder="Ej: MUZ-01" autocapitalize="characters" spellcheck="false">
+      <input id="filterPizzaId" type="text" placeholder="Ej: {% if current_branding == 'BURGERS' %}BUR-01{% else %}MUZ-01{% endif %}" autocapitalize="characters" spellcheck="false">
     </label>
     <label>
       Desde (venta)
@@ -53,9 +53,13 @@
       Sabor (venta)
       <select id="filterFlavor">
         <option value="">Todos</option>
+        {% if current_branding == "BURGERS" %}
+        <option value="HAMBURGUESA CLASICA">HAMBURGUESA CLASICA</option>
+        {% else %}
         <option value="DIAVOLA">DIAVOLA</option>
         <option value="DIAVOLA A MI MANERA">DIAVOLA A MI MANERA</option>
         <option value="JAMON Y QUESO">JAMON Y QUESO</option>
+        {% endif %}
       </select>
     </label>
     <label>

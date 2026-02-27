@@ -1,5 +1,5 @@
 {% extends "festival/base.html" %}
-{% block title %}{{ title }} - Cipriano Festival{% endblock %}
+{% block title %}{{ title }} - Cipriano{% endblock %}
 {% block body_class %}station-page mode-{{ mode|lower }}{% endblock %}
 {% block content %}
 <section class="panel station-panel">
@@ -30,7 +30,7 @@
 
   <label>
     Codigo/ID
-    <input id="scanInput" class="scan-input" type="text" placeholder="Ej: D1-MUZ-0001" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <input id="scanInput" class="scan-input" type="text" placeholder="Ej: {% if current_branding == 'BURGERS' %}D1-BUR-0001{% else %}D1-MUZ-0001{% endif %}" autocomplete="off" autocapitalize="characters" spellcheck="false">
   </label>
   <div class="camera-actions">
     <button id="openCameraBtn" type="button" class="btn">Abrir camara</button>

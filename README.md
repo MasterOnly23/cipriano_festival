@@ -9,6 +9,7 @@ MVP para operar un puesto de pizzas con escaneo rapido por QR/codigo.
 
 ## Pantallas
 - `/login`: acceso por usuario + PIN con sesion expirable
+- `/branding/select`: seleccion de servicio (Festival/Burgers). Solo admin puede alternar libremente.
 - `/kitchen`: escaneo en modo cocina (`PREPARACION -> LISTA`)
 - `/sales`: escaneo en modo ventas (`LISTA -> VENDIDA`)
 - `/dashboard`: conteos en tiempo real + facturacion vendida + ultimos eventos + deshacer admin
@@ -73,9 +74,12 @@ Notas:
 - Si quieres levantar local sin Docker usando SQLite, ajusta `.env` segun comentarios en `.env.example`.
 
 ## Usuarios iniciales (auto bootstrap)
-- `cocina` (rol kitchen) PIN `DEFAULT_KITCHEN_PIN`
-- `ventas` (rol sales) PIN `DEFAULT_SALES_PIN`
-- `lotes` (rol batches) PIN `DEFAULT_BATCHES_PIN`
+- `cocina` (rol kitchen, branding festival) PIN `DEFAULT_FESTIVAL_KITCHEN_PIN`
+- `ventas` (rol sales, branding festival) PIN `DEFAULT_FESTIVAL_SALES_PIN`
+- `lotes` (rol batches, branding festival) PIN `DEFAULT_FESTIVAL_BATCHES_PIN`
+- `cocinaburger` (rol kitchen, branding burgers) PIN `DEFAULT_BURGERS_KITCHEN_PIN`
+- `ventasburger` (rol sales, branding burgers) PIN `DEFAULT_BURGERS_SALES_PIN`
+- `lotesburger` (rol batches, branding burgers) PIN `DEFAULT_BURGERS_BATCHES_PIN`
 - `admin` (rol admin) PIN `DEFAULT_ADMIN_LOGIN_PIN`
 
 ## Notas operativas

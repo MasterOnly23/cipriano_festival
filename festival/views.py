@@ -14,13 +14,15 @@ from rest_framework.views import APIView
 from .auth_utils import (
     ROLE_LABEL_MAP,
     bootstrap_default_operators,
+    get_active_branding,
+    get_allowed_brandings,
     get_current_operator,
     login_operator,
     logout_operator,
     require_roles_api,
     require_roles_web,
 )
-from .models import PizzaItem, PizzaStatus, RoleType, ScanEvent, Waiter
+from .models import BrandingType, PizzaItem, PizzaStatus, RoleType, ScanEvent, Waiter
 from .qr_pdf import build_labels_pdf, build_waiters_labels_pdf
 from .serializers import PizzaItemSerializer, ScanEventSerializer, WaiterSerializer
 from .services import Actor, TransitionError, admin_set_status, create_batch, create_waiter, process_scan, undo_last
@@ -67,7 +69,8 @@ def login_view(request):
                 error = "Credenciales invalidas."
             else:
                 login_operator(request, operator)
-                return redirect(next_url)
+                request.session["post_login_next"] = next_url
+                return redirect("/branding/select")
 
     return render(
         request,
@@ -85,6 +88,9 @@ def home_view(request):
     operator = get_current_operator(request)
     if not operator:
         return redirect("/login/")
+    branding = get_active_branding(request)
+    if not branding:
+        return redirect("/branding/select")
     if operator.role == "KITCHEN":
         return redirect("/kitchen/")
     if operator.role == "SALES":
@@ -94,12 +100,50 @@ def home_view(request):
     return redirect("/dashboard/")
 
 
+@require_roles_web(["KITCHEN", "SALES", "BATCHES", "ADMIN"])
+def branding_select_view(request):
+    operator = request.current_operator
+    allowed = get_allowed_brandings(operator)
+    next_url = (request.GET.get("next") or request.session.get("post_login_next") or "/").strip()
+    if not next_url.startswith("/"):
+        next_url = "/"
+    error = ""
+
+    if request.method == "POST":
+        selected = (request.POST.get("branding") or "").strip().upper()
+        if selected not in {BrandingType.FESTIVAL, BrandingType.BURGERS}:
+            error = "Seleccion de branding invalida."
+        elif selected not in allowed:
+            error = "No tienes permisos para ese branding."
+        else:
+            request.session["active_branding"] = selected
+            request.session.pop("post_login_next", None)
+            return redirect(next_url)
+
+    return render(
+        request,
+        "festival/branding_select.html",
+        {
+            "operator": operator,
+            "allowed_brandings": allowed,
+            "active_branding": request.session.get("active_branding"),
+            "next": next_url,
+            "error": error,
+        },
+    )
+
+
 @require_roles_web(["KITCHEN", "ADMIN"])
 def kitchen_view(request):
     return render(
         request,
         "festival/scan_station.html",
-        {"mode": "KITCHEN", "title": "Modo Cocina", "operator": request.current_operator},
+        {
+            "mode": "KITCHEN",
+            "title": "Modo Cocina",
+            "operator": request.current_operator,
+            "current_branding": request.current_branding,
+        },
     )
 
 
@@ -108,23 +152,40 @@ def sales_view(request):
     return render(
         request,
         "festival/scan_station.html",
-        {"mode": "SALES", "title": "Modo Ventas", "operator": request.current_operator},
+        {
+            "mode": "SALES",
+            "title": "Modo Ventas",
+            "operator": request.current_operator,
+            "current_branding": request.current_branding,
+        },
     )
 
 
 @require_roles_web(["SALES", "ADMIN"])
 def dashboard_view(request):
-    return render(request, "festival/dashboard.html", {"operator": request.current_operator})
+    return render(
+        request,
+        "festival/dashboard.html",
+        {"operator": request.current_operator, "current_branding": request.current_branding},
+    )
 
 
 @require_roles_web(["BATCHES", "ADMIN"])
 def batches_view(request):
-    return render(request, "festival/batches.html", {"operator": request.current_operator})
+    return render(
+        request,
+        "festival/batches.html",
+        {"operator": request.current_operator, "current_branding": request.current_branding},
+    )
 
 
 @require_roles_web(["ADMIN"])
 def admin_ops_view(request):
-    return render(request, "festival/admin_ops.html", {"operator": request.current_operator})
+    return render(
+        request,
+        "festival/admin_ops.html",
+        {"operator": request.current_operator, "current_branding": request.current_branding},
+    )
 
 
 class ScanAPIView(APIView):
@@ -132,6 +193,7 @@ class ScanAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["KITCHEN", "SALES", "ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         pizza_id = (request.data.get("id") or "").strip().upper()
         mode = (request.data.get("mode") or "").strip().upper()
@@ -157,6 +219,7 @@ class ScanAPIView(APIView):
                 flavor_if_empty=flavor_if_empty,
                 override_pin=override_pin,
                 waiter_code=waiter_code,
+                branding=active_branding,
             )
         except TransitionError as exc:
             return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -176,17 +239,19 @@ class WaiterAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN", "SALES"])
         if error:
             return Response(error, status=error_status)
-        waiters = Waiter.objects.filter(is_active=True).order_by("name")
+        active_branding = get_active_branding(request)
+        waiters = Waiter.objects.filter(is_active=True, branding=active_branding).order_by("name")
         return Response({"ok": True, "waiters": WaiterSerializer(waiters, many=True).data})
 
     def post(self, request):
         operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         name = (request.data.get("name") or "").strip()
         try:
-            waiter = create_waiter(name=name, actor_name=operator.username)
+            waiter = create_waiter(name=name, actor_name=operator.username, branding=active_branding)
         except TransitionError as exc:
             return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -204,12 +269,15 @@ class WaiterLabelsAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         codes_raw = (request.GET.get("codes") or "").strip().upper()
         if not codes_raw:
             return Response({"ok": False, "error": "codes requerido"}, status=status.HTTP_400_BAD_REQUEST)
         codes = [code.strip() for code in codes_raw.split(",") if code.strip()]
-        waiters = list(Waiter.objects.filter(code__in=codes, is_active=True).order_by("name", "code"))
+        waiters = list(
+            Waiter.objects.filter(code__in=codes, is_active=True, branding=active_branding).order_by("name", "code")
+        )
         if not waiters:
             return Response({"ok": False, "error": "Meseros no encontrados"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -224,6 +292,7 @@ class BatchGenerateAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         day_code = (request.data.get("day_code") or "").strip().upper()
         flavor_prefix = (request.data.get("flavor_prefix") or "").strip().upper()
@@ -266,6 +335,21 @@ class BatchGenerateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        flavor_map = {
+            BrandingType.FESTIVAL: {
+                "DIAVOLA": "DIA",
+                "DIAVOLA A MI MANERA": "DAM",
+                "JAMON Y QUESO": "JYQ",
+            },
+            BrandingType.BURGERS: {"HAMBURGUESA CLASICA": "BUR"},
+        }
+        expected_prefix = flavor_map.get(active_branding, {}).get(flavor)
+        if expected_prefix and flavor_prefix != expected_prefix:
+            return Response(
+                {"ok": False, "error": f"Prefijo invalido para {flavor}. Debe ser {expected_prefix}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             batch, items = create_batch(
                 day_code=day_code,
@@ -277,6 +361,7 @@ class BatchGenerateAPIView(APIView):
                 actor_name=actor_name,
                 start_number=start_number,
                 notes=notes,
+                branding=active_branding,
             )
         except Exception as exc:  # pragma: no cover - defensive path
             return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -303,8 +388,9 @@ class BatchLabelsAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
-        queryset = PizzaItem.objects.filter(batch__code=batch_code).order_by("id")
+        queryset = PizzaItem.objects.filter(batch__code=batch_code, branding=active_branding).order_by("id")
         from_id = (request.GET.get("from_id") or "").strip().upper()
         to_id = (request.GET.get("to_id") or "").strip().upper()
         if from_id:
@@ -325,6 +411,7 @@ class DashboardDataAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["SALES", "ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         try:
             page = max(1, int(request.GET.get("page", 1)))
@@ -359,11 +446,12 @@ class DashboardDataAPIView(APIView):
             to_status = PizzaStatus.VENDIDA
 
         counts = {
-            row["status"]: row["total"] for row in PizzaItem.objects.values("status").annotate(total=Count("id"))
+            row["status"]: row["total"]
+            for row in PizzaItem.objects.filter(branding=active_branding).values("status").annotate(total=Count("id"))
         }
         for key in PizzaStatus.values:
             counts.setdefault(key, 0)
-        revenue_qs = PizzaItem.objects.filter(status=PizzaStatus.VENDIDA)
+        revenue_qs = PizzaItem.objects.filter(status=PizzaStatus.VENDIDA, branding=active_branding)
         if flavor:
             revenue_qs = revenue_qs.filter(flavor=flavor)
         if waiter_name:
@@ -374,7 +462,7 @@ class DashboardDataAPIView(APIView):
             revenue_qs = revenue_qs.filter(sold_at__date__lte=date_to)
         revenue = revenue_qs.aggregate(total=Sum("price")).get("total")
 
-        latest_qs = ScanEvent.objects.select_related("pizza").all()
+        latest_qs = ScanEvent.objects.select_related("pizza").filter(branding=active_branding)
         if mode:
             latest_qs = latest_qs.filter(mode=mode)
         if to_status:
@@ -441,6 +529,7 @@ class SalesExportXLSAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["SALES", "ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         flavor = (request.GET.get("flavor") or "").strip().upper()
         waiter_name = (request.GET.get("waiter_name") or "").strip().upper()
@@ -456,7 +545,9 @@ class SalesExportXLSAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        sales_qs = PizzaItem.objects.filter(status=PizzaStatus.VENDIDA).order_by("sold_at", "id")
+        sales_qs = PizzaItem.objects.filter(status=PizzaStatus.VENDIDA, branding=active_branding).order_by(
+            "sold_at", "id"
+        )
         if flavor:
             sales_qs = sales_qs.filter(flavor=flavor)
         if waiter_name:
@@ -551,6 +642,7 @@ class AdminStatusAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         pizza_id = (request.data.get("id") or "").strip().upper()
         to_status = (request.data.get("to_status") or "").strip().upper()
@@ -558,7 +650,13 @@ class AdminStatusAPIView(APIView):
         actor = Actor(name=operator.username, role=RoleType.ADMIN)
 
         try:
-            item, event = admin_set_status(pizza_id=pizza_id, to_status=to_status, actor=actor, pin=pin)
+            item, event = admin_set_status(
+                pizza_id=pizza_id,
+                to_status=to_status,
+                actor=actor,
+                pin=pin,
+                branding=active_branding,
+            )
         except TransitionError as exc:
             return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -572,12 +670,13 @@ class UndoAPIView(APIView):
         operator, error, error_status = require_roles_api(request, ["ADMIN"])
         if error:
             return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
 
         pin = (request.data.get("pin") or "").strip()
         actor = Actor(name=operator.username, role=RoleType.ADMIN)
 
         try:
-            item, event = undo_last(pin=pin, actor=actor)
+            item, event = undo_last(pin=pin, actor=actor, branding=active_branding)
         except TransitionError as exc:
             return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

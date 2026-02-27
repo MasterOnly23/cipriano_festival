@@ -46,6 +46,7 @@ def _create_event(
 ) -> ScanEvent:
     return ScanEvent.objects.create(
         pizza=item,
+        branding=item.branding,
         mode=mode,
         actor_name=actor.name,
         actor_role=actor.role,
@@ -66,9 +67,10 @@ def process_scan(
     flavor_if_empty: str = "",
     override_pin: str = "",
     waiter_code: str = "",
+    branding: str = "FESTIVAL",
 ) -> tuple[PizzaItem, ScanEvent]:
     try:
-        item = PizzaItem.objects.select_for_update().get(pk=pizza_id)
+        item = PizzaItem.objects.select_for_update().get(pk=pizza_id, branding=branding)
     except PizzaItem.DoesNotExist as exc:
         raise TransitionError(f"ID no encontrado: {pizza_id}") from exc
 
@@ -91,7 +93,7 @@ def process_scan(
         if not waiter_code:
             raise TransitionError("Debes escanear primero el QR del mesero")
         try:
-            waiter = Waiter.objects.get(code=waiter_code, is_active=True)
+            waiter = Waiter.objects.get(code=waiter_code, is_active=True, branding=branding)
         except Waiter.DoesNotExist as exc:
             raise TransitionError(f"Mesero no encontrado o inactivo: {waiter_code}") from exc
 
@@ -122,7 +124,14 @@ def process_scan(
 
 
 @transaction.atomic
-def admin_set_status(*, pizza_id: str, to_status: str, actor: Actor, pin: str) -> tuple[PizzaItem, ScanEvent]:
+def admin_set_status(
+    *,
+    pizza_id: str,
+    to_status: str,
+    actor: Actor,
+    pin: str,
+    branding: str = "FESTIVAL",
+) -> tuple[PizzaItem, ScanEvent]:
     if pin != settings.ADMIN_ACTIONS_PIN:
         raise TransitionError("PIN admin invalido")
 
@@ -130,7 +139,7 @@ def admin_set_status(*, pizza_id: str, to_status: str, actor: Actor, pin: str) -
         raise TransitionError("Estado admin invalido")
 
     try:
-        item = PizzaItem.objects.select_for_update().get(pk=pizza_id)
+        item = PizzaItem.objects.select_for_update().get(pk=pizza_id, branding=branding)
     except PizzaItem.DoesNotExist as exc:
         raise TransitionError(f"ID no encontrado: {pizza_id}") from exc
 
@@ -149,15 +158,15 @@ def admin_set_status(*, pizza_id: str, to_status: str, actor: Actor, pin: str) -
 
 
 @transaction.atomic
-def undo_last(*, pin: str, actor: Actor) -> tuple[PizzaItem, ScanEvent]:
+def undo_last(*, pin: str, actor: Actor, branding: str = "FESTIVAL") -> tuple[PizzaItem, ScanEvent]:
     if pin != settings.ADMIN_ACTIONS_PIN:
         raise TransitionError("PIN admin invalido")
 
-    last = ScanEvent.objects.select_for_update().filter(undone=False).first()
+    last = ScanEvent.objects.select_for_update().filter(undone=False, branding=branding).first()
     if not last:
         raise TransitionError("No hay eventos para deshacer")
 
-    item = PizzaItem.objects.select_for_update().get(pk=last.pizza_id)
+    item = PizzaItem.objects.select_for_update().get(pk=last.pizza_id, branding=branding)
     item.status = last.from_status
     _set_transition_fields(item, item.status, actor.name)
     item.save()
@@ -188,6 +197,7 @@ def create_batch(
     actor_name: str,
     start_number: Optional[int] = None,
     notes: str = "",
+    branding: str = "FESTIVAL",
 ) -> tuple[Batch, list[PizzaItem]]:
     prefix = flavor_prefix.strip().upper()
     day_code = day_code.strip().upper()
@@ -195,12 +205,19 @@ def create_batch(
 
     batch, _ = Batch.objects.get_or_create(
         code=batch_code,
-        defaults={"day": timezone.localdate(), "notes": notes, "created_by": actor_name},
+        defaults={
+            "branding": branding,
+            "day": timezone.localdate(),
+            "notes": notes,
+            "created_by": actor_name,
+        },
     )
+    if batch.branding != branding:
+        raise TransitionError(f"El lote {batch_code} ya existe para otro branding")
 
     if start_number is None:
         last_id = (
-            PizzaItem.objects.filter(id__startswith=f"{batch_code}-")
+            PizzaItem.objects.filter(id__startswith=f"{batch_code}-", branding=branding)
             .aggregate(last=Max("id"))
             .get("last")
         )
@@ -214,6 +231,7 @@ def create_batch(
         code = f"{batch_code}-{n:04d}"
         item = PizzaItem(
             id=code,
+            branding=branding,
             flavor=flavor.strip().upper(),
             size=size.strip().upper(),
             price=price,
@@ -228,15 +246,15 @@ def create_batch(
 
 
 @transaction.atomic
-def create_waiter(*, name: str, actor_name: str) -> Waiter:
+def create_waiter(*, name: str, actor_name: str, branding: str = "FESTIVAL") -> Waiter:
     cleaned = (name or "").strip().upper()
     if not cleaned:
         raise TransitionError("Nombre de mesero requerido")
 
-    last_code = Waiter.objects.aggregate(last=Max("code")).get("last")
+    last_code = Waiter.objects.filter(branding=branding).aggregate(last=Max("code")).get("last")
     if last_code and last_code.startswith("W-") and last_code.rsplit("-", 1)[-1].isdigit():
         next_number = int(last_code.rsplit("-", 1)[-1]) + 1
     else:
         next_number = 1
     code = f"W-{next_number:04d}"
-    return Waiter.objects.create(code=code, name=cleaned, created_by=actor_name)
+    return Waiter.objects.create(code=code, name=cleaned, created_by=actor_name, branding=branding)

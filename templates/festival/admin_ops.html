@@ -1,5 +1,5 @@
 {% extends "festival/base.html" %}
-{% block title %}Admin Ops - Cipriano Festival{% endblock %}
+{% block title %}Admin Ops - Cipriano{% endblock %}
 {% block content %}
 <section class="panel">
   <h1>Operaciones administrativas</h1>
@@ -26,7 +26,7 @@
   <div class="grid three">
     <label>
       ID pizza
-      <input id="pizzaIdInput" type="text" placeholder="Ej: D1-MUZ-0123" autocapitalize="characters" spellcheck="false">
+      <input id="pizzaIdInput" type="text" placeholder="Ej: {% if current_branding == 'BURGERS' %}D1-BUR-0123{% else %}D1-MUZ-0123{% endif %}" autocapitalize="characters" spellcheck="false">
     </label>
     <label>
       Estado destino

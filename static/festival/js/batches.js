@@ -23,6 +23,7 @@
     DIAVOLA: "DIA",
     "DIAVOLA A MI MANERA": "DAM",
     "JAMON Y QUESO": "JYQ",
+    "HAMBURGUESA CLASICA": "BUR",
   };
   let startNumberUnlocked = false;
 

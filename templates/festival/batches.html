@@ -1,5 +1,5 @@
 {% extends "festival/base.html" %}
-{% block title %}Lotes - Cipriano Festival{% endblock %}
+{% block title %}Lotes - Cipriano{% endblock %}
 {% block content %}
 <section class="panel">
   <h1>Generar lote del dia</h1>
@@ -18,10 +18,14 @@
     <label>
       Sabor
       <select id="flavorName">
+        {% if current_branding == "BURGERS" %}
+        <option value="HAMBURGUESA CLASICA" selected>HAMBURGUESA CLASICA</option>
+        {% else %}
         <option value="" selected>Seleccionar sabor</option>
         <option value="DIAVOLA">DIAVOLA</option>
         <option value="DIAVOLA A MI MANERA">DIAVOLA A MI MANERA</option>
         <option value="JAMON Y QUESO">JAMON Y QUESO</option>
+        {% endif %}
       </select>
     </label>
     <label>Cantidad<input id="quantity" type="number" min="1" value="100"></label>
