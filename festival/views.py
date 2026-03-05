@@ -28,6 +28,60 @@ from .serializers import PizzaItemSerializer, ScanEventSerializer, WaiterSeriali
 from .services import Actor, TransitionError, admin_set_status, create_batch, create_waiter, process_scan, undo_last
 
 
+BRANDING_META = {
+    BrandingType.FESTIVAL: {
+        "slug": "festival",
+        "display_name": "Cipriano Festival",
+        "subtitle": "Operacion de pizzas",
+        "login_path": "/festival/login/",
+        "users_hint": "cocina | ventas | lotes | admin",
+    },
+    BrandingType.BURGERS: {
+        "slug": "don",
+        "display_name": "DON",
+        "subtitle": "Operacion de hamburguesas",
+        "login_path": "/don/login/",
+        "users_hint": "cocinaburger | ventasburger | lotesburger | admin",
+    },
+}
+
+
+def _brand_context(branding: str) -> dict:
+    return BRANDING_META.get(branding, BRANDING_META[BrandingType.FESTIVAL])
+
+
+def landing_view(request):
+    operator = get_current_operator(request)
+    if operator:
+        return redirect("/app/")
+    products = [
+        {
+            "key": BrandingType.FESTIVAL,
+            **BRANDING_META[BrandingType.FESTIVAL],
+        },
+        {
+            "key": BrandingType.BURGERS,
+            **BRANDING_META[BrandingType.BURGERS],
+        },
+    ]
+    active_branding = request.session.get("active_branding") if operator else BrandingType.FESTIVAL
+    if active_branding not in {BrandingType.FESTIVAL, BrandingType.BURGERS}:
+        active_branding = BrandingType.FESTIVAL
+    return render(
+        request,
+        "festival/landing.html",
+        {"products": products, "operator": operator, "current_branding": active_branding},
+    )
+
+
+def festival_login_view(request):
+    return login_view(request, forced_branding=BrandingType.FESTIVAL)
+
+
+def don_login_view(request):
+    return login_view(request, forced_branding=BrandingType.BURGERS)
+
+
 def _parse_iso_date(value: str, field_name: str) -> tuple[date | None, str | None]:
     raw = (value or "").strip()
     if not raw:
@@ -38,21 +92,27 @@ def _parse_iso_date(value: str, field_name: str) -> tuple[date | None, str | Non
         return None, f"{field_name} invalida. Formato esperado: YYYY-MM-DD"
 
 
-def login_view(request):
+def login_view(request, forced_branding: str | None = None):
     bootstrap_default_operators()
-    if get_current_operator(request):
+    if not forced_branding:
+        return redirect("/")
+
+    branding = forced_branding.strip().upper()
+    if branding not in {BrandingType.FESTIVAL, BrandingType.BURGERS}:
         return redirect("/")
 
     error = ""
-    next_url = request.GET.get("next", "/")
+    next_url = request.GET.get("next", "/app/")
     if not next_url.startswith("/"):
-        next_url = "/"
+        next_url = "/app/"
+    if next_url == "/":
+        next_url = "/app/"
     denied = request.GET.get("denied") == "1"
 
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip().lower()
         pin = (request.POST.get("pin") or "").strip()
-        next_url = (request.POST.get("next") or "/").strip()
+        next_url = (request.POST.get("next") or "/app/").strip()
         if not next_url.startswith("/"):
             next_url = "/"
         if not username or not pin:
@@ -68,29 +128,42 @@ def login_view(request):
             if not operator or not operator.check_pin(pin):
                 error = "Credenciales invalidas."
             else:
-                login_operator(request, operator)
-                request.session["post_login_next"] = next_url
-                return redirect("/branding/select")
+                allowed = set(get_allowed_brandings(operator))
+                if branding not in allowed:
+                    error = "Este usuario no tiene acceso a este sistema."
+                else:
+                    login_operator(request, operator)
+                    request.session["active_branding"] = branding
+                    return redirect(next_url)
 
     return render(
         request,
         "festival/login.html",
-        {"error": error, "next": next_url, "denied": denied},
+        {
+            "error": error,
+            "next": next_url,
+            "denied": denied,
+            "login_brand": _brand_context(branding),
+            "current_branding": branding,
+        },
     )
+
 
 
 def logout_view(request):
     logout_operator(request)
-    return redirect("/login/")
+    return redirect("/")
 
 
 def home_view(request):
     operator = get_current_operator(request)
     if not operator:
-        return redirect("/login/")
+        return redirect("/")
     branding = get_active_branding(request)
     if not branding:
-        return redirect("/branding/select")
+        allowed = get_allowed_brandings(operator)
+        branding = allowed[0]
+        request.session["active_branding"] = branding
     if operator.role == "KITCHEN":
         return redirect("/kitchen/")
     if operator.role == "SALES":
@@ -102,35 +175,7 @@ def home_view(request):
 
 @require_roles_web(["KITCHEN", "SALES", "BATCHES", "ADMIN"])
 def branding_select_view(request):
-    operator = request.current_operator
-    allowed = get_allowed_brandings(operator)
-    next_url = (request.GET.get("next") or request.session.get("post_login_next") or "/").strip()
-    if not next_url.startswith("/"):
-        next_url = "/"
-    error = ""
-
-    if request.method == "POST":
-        selected = (request.POST.get("branding") or "").strip().upper()
-        if selected not in {BrandingType.FESTIVAL, BrandingType.BURGERS}:
-            error = "Seleccion de branding invalida."
-        elif selected not in allowed:
-            error = "No tienes permisos para ese branding."
-        else:
-            request.session["active_branding"] = selected
-            request.session.pop("post_login_next", None)
-            return redirect(next_url)
-
-    return render(
-        request,
-        "festival/branding_select.html",
-        {
-            "operator": operator,
-            "allowed_brandings": allowed,
-            "active_branding": request.session.get("active_branding"),
-            "next": next_url,
-            "error": error,
-        },
-    )
+    return redirect("/")
 
 
 @require_roles_web(["KITCHEN", "ADMIN"])

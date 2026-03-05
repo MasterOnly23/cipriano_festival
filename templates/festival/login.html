@@ -1,15 +1,19 @@
 {% extends "festival/base.html" %}
-{% block title %}Login - Cipriano{% endblock %}
-{% block body_class %}login-page{% endblock %}
+{% block title %}Login - {{ login_brand.display_name }} | zentraStock{% endblock %}
+{% block body_class %}login-page login-brand-{{ login_brand.slug }}{% endblock %}
 {% block content %}
 <section class="panel auth-panel">
   <div class="auth-logo-wrap">
-    <img src="/static/assets/logoLargo.png" alt="Cipriano" class="auth-logo">
+    {% if login_brand.slug == "don" %}
+    <div class="auth-don-logo">DON</div>
+    {% else %}
+    <img src="/static/assets/logoLargo.png" alt="{{ login_brand.display_name }}" class="auth-logo">
+    {% endif %}
   </div>
-  <h1>Ingreso de operador</h1>
-  <p class="muted">Ingresar con usuario y PIN.</p>
+  <h1>{{ login_brand.display_name }}</h1>
+  <p class="muted">{{ login_brand.subtitle }}. Ingresa con usuario y PIN.</p>
   {% if denied %}
-  <p class="feedback error">No tienes permisos para esa pantalla.</p>
+  <p class="feedback error">No tienes permisos para esta pantalla.</p>
   {% endif %}
   {% if error %}
   <p class="feedback error">{{ error }}</p>
@@ -19,7 +23,7 @@
     <input type="hidden" name="next" value="{{ next }}">
     <label>
       Usuario
-      <input type="text" name="username" placeholder="cocina | ventas | lotes | cocinaburger | ventasburger | lotesburger | admin" required>
+      <input type="text" name="username" placeholder="{{ login_brand.users_hint }}" required>
     </label>
     <label>
       PIN

@@ -3,9 +3,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("", views.home_view, name="home"),
-    path("login/", views.login_view, name="login"),
+    path("", views.landing_view, name="landing"),
+    path("login/", views.landing_view, name="login-legacy"),
+    path("festival/login/", views.festival_login_view, name="festival-login"),
+    path("don/login/", views.don_login_view, name="don-login"),
     path("logout/", views.logout_view, name="logout"),
+    path("app/", views.home_view, name="home"),
     path("branding/select", views.branding_select_view, name="branding-select"),
     path("kitchen/", views.kitchen_view, name="kitchen"),
     path("sales/", views.sales_view, name="sales"),

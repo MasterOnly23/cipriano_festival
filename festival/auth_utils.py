@@ -99,11 +99,11 @@ def require_roles_web(roles: Iterable[str]):
         def wrapped(request, *args, **kwargs):
             operator = get_current_operator(request)
             if not operator:
-                return redirect(f"/login/?next={request.path}")
+                return redirect("/")
             if operator.role not in role_set:
-                return redirect("/login/?denied=1")
+                return redirect("/")
             if not get_active_branding(request):
-                return redirect(f"/branding/select?next={request.path}")
+                return redirect("/")
             request.current_operator = operator
             request.current_branding = request.session.get("active_branding")
             return view_func(request, *args, **kwargs)

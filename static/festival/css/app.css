@@ -34,7 +34,7 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: url("/static/assets/logoSinFondo.png") no-repeat right -70px bottom -120px / 460px auto;
+  background: url("/static/assets/zentrastock_full_256-removebg.png") no-repeat right -70px bottom -120px / 420px auto;
   opacity: 0.05;
 }
 
@@ -789,5 +789,145 @@ button:disabled {
 
   .branding-card-title {
     font-size: 22px;
+  }
+}
+
+
+.zentra-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid #d4d8e5;
+  background: linear-gradient(180deg, #ffffff, #f4f7ff);
+  padding: 4px 10px;
+}
+
+.zentra-logo {
+  height: 42px;
+  width: auto;
+  display: block;
+}
+
+.brand-placeholder {
+  min-width: 112px;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 9px;
+  background: linear-gradient(140deg, #f59e0b, #dc2626);
+  color: #fff;
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.landing-page .container {
+  max-width: 980px;
+}
+
+.landing-hero {
+  text-align: center;
+  padding: 24px;
+}
+
+.landing-logo {
+  width: 280px;
+  max-width: 90%;
+  margin: 0 auto 8px;
+  display: block;
+}
+
+.product-cards {
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.product-card {
+  text-decoration: none;
+  border-radius: 14px;
+  border: 1px solid #d8c09a;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  color: #1b3240;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(27, 50, 64, 0.14);
+}
+
+.product-festival {
+  background: linear-gradient(180deg, #fff6df, #f4e8cd);
+}
+
+.product-don {
+  background: linear-gradient(180deg, #fff7ed, #ffe4e6);
+  border-color: #f2b87a;
+}
+
+.product-name {
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  font-size: 30px;
+  color: #6f3928;
+}
+
+.product-sub {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #445a69;
+}
+
+.product-cta {
+  font-weight: 800;
+  color: #924e37;
+}
+
+.auth-don-logo {
+  min-width: 210px;
+  text-align: center;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: linear-gradient(140deg, #f59e0b, #dc2626);
+  color: #fff;
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
+body.branding-burgers {
+  --bg: #fff1e6;
+  --bg-soft: #fff7ef;
+  --paper: #fffaf4;
+  --brand: #d9480f;
+  --brand-deep: #9a3412;
+}
+
+body.login-brand-don.login-page {
+  background:
+    linear-gradient(180deg, rgba(154, 52, 18, 0.68), rgba(154, 52, 18, 0.68)),
+    radial-gradient(circle at 50% 0, rgba(255, 210, 160, 0.24), transparent 42%),
+    linear-gradient(180deg, #d9480f, #9a3412);
+}
+
+@media (max-width: 700px) {
+  .product-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .zentra-badge {
+    width: 100%;
+  }
+
+  .brand-placeholder {
+    min-width: 84px;
+    font-size: 24px;
   }
 }
