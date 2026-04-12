@@ -1,0 +1,38 @@
+{% extends "festival/base.html" %}
+{% block title %}Seleccionar branding{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Seleccionar servicio</h1>
+  <p class="muted">Usuario: <strong>{{ operator.username }}</strong></p>
+  {% if error %}
+  <p class="feedback error">{{ error }}</p>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="branding-cards">
+      <button
+        type="submit"
+        name="branding"
+        value="FESTIVAL"
+        class="branding-card{% if active_branding == 'FESTIVAL' %} active{% endif %}"
+        {% if "FESTIVAL" not in allowed_brandings %}disabled{% endif %}
+      >
+        <span class="branding-card-title">Cipriano Festival</span>
+        <span class="branding-card-sub">Operacion pizzas</span>
+      </button>
+      <button
+        type="submit"
+        name="branding"
+        value="BURGERS"
+        class="branding-card{% if active_branding == 'BURGERS' %} active{% endif %}"
+        {% if "BURGERS" not in allowed_brandings %}disabled{% endif %}
+      >
+        <span class="branding-card-title">Cipriano Burgers</span>
+        <span class="branding-card-sub">Operacion burgers</span>
+      </button>
+    </div>
+  </form>
+</section>
+{% endblock %}

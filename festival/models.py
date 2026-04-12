@@ -23,10 +23,22 @@ class OperatorRole(models.TextChoices):
     ADMIN = "ADMIN", "Admin"
 
 
+class BrandingType(models.TextChoices):
+    FESTIVAL = "FESTIVAL", "Festival"
+    BURGERS = "BURGERS", "Burgers"
+    BOTH = "BOTH", "Both"
+
+
 class Operator(models.Model):
     username = models.CharField(max_length=40, unique=True)
     pin_hash = models.CharField(max_length=128)
     role = models.CharField(max_length=12, choices=OperatorRole.choices)
+    branding = models.CharField(
+        max_length=12,
+        choices=BrandingType.choices,
+        default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -47,6 +59,12 @@ class Operator(models.Model):
 
 class Batch(models.Model):
     code = models.CharField(max_length=24, unique=True)
+    branding = models.CharField(
+        max_length=10,
+        choices=[(BrandingType.FESTIVAL, "Festival"), (BrandingType.BURGERS, "Burgers")],
+        default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
     day = models.DateField()
     notes = models.CharField(max_length=200, blank=True)
     created_by = models.CharField(max_length=80, blank=True)
@@ -56,8 +74,34 @@ class Batch(models.Model):
         return self.code
 
 
+class Waiter(models.Model):
+    code = models.CharField(max_length=24, unique=True)
+    branding = models.CharField(
+        max_length=10,
+        choices=[(BrandingType.FESTIVAL, "Festival"), (BrandingType.BURGERS, "Burgers")],
+        default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
+    name = models.CharField(max_length=80)
+    is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "code"]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.code})"
+
+
 class PizzaItem(models.Model):
     id = models.CharField(primary_key=True, max_length=32)
+    branding = models.CharField(
+        max_length=10,
+        choices=[(BrandingType.FESTIVAL, "Festival"), (BrandingType.BURGERS, "Burgers")],
+        default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
     flavor = models.CharField(max_length=40, blank=True)
     size = models.CharField(max_length=20, blank=True)
     price = models.DecimalField(max_digits=8, decimal_places=2, default=0)
@@ -86,11 +130,19 @@ class PizzaItem(models.Model):
 
 class ScanEvent(models.Model):
     pizza = models.ForeignKey(PizzaItem, on_delete=models.CASCADE, related_name="events")
+    branding = models.CharField(
+        max_length=10,
+        choices=[(BrandingType.FESTIVAL, "Festival"), (BrandingType.BURGERS, "Burgers")],
+        default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
     mode = models.CharField(max_length=20)
     actor_name = models.CharField(max_length=80, blank=True)
     actor_role = models.CharField(max_length=16, choices=RoleType.choices)
     from_status = models.CharField(max_length=16, choices=PizzaStatus.choices)
     to_status = models.CharField(max_length=16, choices=PizzaStatus.choices)
+    waiter_code = models.CharField(max_length=24, blank=True)
+    waiter_name = models.CharField(max_length=80, blank=True)
     note = models.CharField(max_length=200, blank=True)
     undone = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

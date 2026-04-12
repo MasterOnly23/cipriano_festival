@@ -14,10 +14,16 @@
   const generateBtn = document.getElementById("generateBtn");
   const batchMsg = document.getElementById("batchMsg");
   const pdfLink = document.getElementById("pdfLink");
+  const waiterName = document.getElementById("waiterName");
+  const waiterActorName = document.getElementById("waiterActorName");
+  const createWaiterBtn = document.getElementById("createWaiterBtn");
+  const waiterMsg = document.getElementById("waiterMsg");
+  const waiterPdfLink = document.getElementById("waiterPdfLink");
   const flavorToPrefix = {
     DIAVOLA: "DIA",
     "DIAVOLA A MI MANERA": "DAM",
     "JAMON Y QUESO": "JYQ",
+    "HAMBURGUESA CLASICA": "BUR",
   };
   let startNumberUnlocked = false;
 
@@ -121,4 +127,36 @@
     setStartNumberMode(false);
     startNumberAdminPin.value = "";
   });
+
+  if (createWaiterBtn && waiterName) {
+    createWaiterBtn.addEventListener("click", async () => {
+      waiterMsg.textContent = "Creando mesero...";
+      waiterPdfLink.classList.add("hidden");
+      const name = waiterName.value.trim().toUpperCase();
+      if (!name) {
+        waiterMsg.textContent = "Ingresa nombre del mesero.";
+        return;
+      }
+
+      const payload = {
+        name: name,
+        actor_name: waiterActorName ? waiterActorName.value.trim() : "",
+      };
+      const res = await fetch("/api/waiters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        waiterMsg.textContent = data.error || "Error al crear mesero";
+        return;
+      }
+      waiterMsg.textContent = `OK ${data.waiter.code} - ${data.waiter.name}`;
+      waiterPdfLink.href = data.labels_pdf_url;
+      waiterPdfLink.textContent = `Descargar QR ${data.waiter.code}`;
+      waiterPdfLink.classList.remove("hidden");
+      waiterName.value = "";
+    });
+  }
 })();

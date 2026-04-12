@@ -17,6 +17,11 @@
   const cameraCanvas = document.getElementById("cameraCanvas");
   const qrReader = document.getElementById("qrReader");
   const cameraMsg = document.getElementById("cameraMsg");
+  const activeWaiterName = document.getElementById("activeWaiterName");
+  const activeWaiterCode = document.getElementById("activeWaiterCode");
+  const clearWaiterBtn = document.getElementById("clearWaiterBtn");
+  const pendingPizzaId = document.getElementById("pendingPizzaId");
+  const clearPendingBtn = document.getElementById("clearPendingBtn");
 
   const canUseNativeCamera = !!(navigator.mediaDevices && window.BarcodeDetector);
   const canUseHtml5Qrcode = !!(navigator.mediaDevices && window.Html5Qrcode);
@@ -28,6 +33,11 @@
   let usingHtml5Reader = false;
   let isProcessingCode = false;
   let rafId = null;
+  let waitersByCode = {};
+  let currentWaiter = null;
+  let pendingPizza = null;
+  let pendingTimerId = null;
+  const pendingTimeoutMs = 45000;
 
   function keepFocus() {
     if (document.activeElement !== input) {
@@ -71,12 +81,74 @@
     pizzaTime.textContent = new Date().toLocaleTimeString();
   }
 
+  function paintNeutral(message) {
+    feedback.className = "feedback neutral";
+    feedback.textContent = message;
+  }
+
+  function renderWaiterState() {
+    if (!activeWaiterName || !activeWaiterCode) {
+      return;
+    }
+    activeWaiterName.textContent = currentWaiter ? currentWaiter.name : "-";
+    activeWaiterCode.textContent = currentWaiter ? currentWaiter.code : "-";
+  }
+
+  function clearPendingPizza(showMessage = false) {
+    pendingPizza = null;
+    if (pendingTimerId) {
+      clearTimeout(pendingTimerId);
+      pendingTimerId = null;
+    }
+    if (pendingPizzaId) {
+      pendingPizzaId.textContent = "-";
+    }
+    if (showMessage) {
+      paintNeutral("Pendiente cancelada.");
+    }
+  }
+
+  function setPendingPizza(code) {
+    pendingPizza = code;
+    if (pendingPizzaId) {
+      pendingPizzaId.textContent = code;
+    }
+    if (pendingTimerId) {
+      clearTimeout(pendingTimerId);
+    }
+    pendingTimerId = setTimeout(() => {
+      clearPendingPizza();
+      paintNeutral("Pendiente expirada. Escanea nuevamente.");
+    }, pendingTimeoutMs);
+  }
+
+  async function loadWaiters() {
+    if (mode !== "SALES") {
+      return;
+    }
+    try {
+      const res = await fetch("/api/waiters");
+      const data = await res.json();
+      if (!res.ok || !data.ok || !Array.isArray(data.waiters)) {
+        return;
+      }
+      const indexed = {};
+      for (const waiter of data.waiters) {
+        indexed[(waiter.code || "").toUpperCase()] = waiter;
+      }
+      waitersByCode = indexed;
+    } catch (err) {
+      // ignore waiter preload errors
+    }
+  }
+
   async function sendScan(code) {
     const payload = {
       id: code.trim().toUpperCase(),
       mode: mode,
       actor_name: currentOperator,
       override_pin: pinInput ? pinInput.value.trim() : "",
+      waiter_code: mode === "SALES" && currentWaiter ? currentWaiter.code : "",
     };
     const res = await fetch("/api/scan", {
       method: "POST",
@@ -94,7 +166,47 @@
     if (!code) {
       return;
     }
-    input.value = code.trim().toUpperCase();
+    const normalized = code.trim().toUpperCase();
+    input.value = normalized;
+    if (mode === "SALES" && normalized.startsWith("W-")) {
+      const waiter = waitersByCode[normalized];
+      if (!waiter) {
+        paintResult({ error: `Mesero no encontrado: ${normalized}` }, true);
+        beep(false);
+        vibe(false);
+        input.value = "";
+        keepFocus();
+        return;
+      }
+      currentWaiter = waiter;
+      renderWaiterState();
+      paintNeutral(`Mesero activo: ${waiter.name} (${waiter.code})`);
+      if (pendingPizza) {
+        try {
+          await sendScan(pendingPizza);
+          clearPendingPizza();
+        } catch (err) {
+          paintResult({ error: "Error de red" }, true);
+          beep(false);
+          vibe(false);
+        }
+      } else {
+        beep(true);
+        vibe(true);
+      }
+      input.value = "";
+      keepFocus();
+      return;
+    }
+    if (mode === "SALES" && !currentWaiter) {
+      setPendingPizza(normalized);
+      paintNeutral(`Pizza pendiente ${normalized}. Escanea QR de mesero para confirmar venta.`);
+      beep(true);
+      vibe(true);
+      input.value = "";
+      keepFocus();
+      return;
+    }
     try {
       await sendScan(input.value);
     } catch (err) {
@@ -275,6 +387,20 @@
     await stopCamera();
     keepFocus();
   });
+  if (clearPendingBtn) {
+    clearPendingBtn.addEventListener("click", () => {
+      clearPendingPizza(true);
+      keepFocus();
+    });
+  }
+  if (clearWaiterBtn) {
+    clearWaiterBtn.addEventListener("click", () => {
+      currentWaiter = null;
+      renderWaiterState();
+      paintNeutral("Mesero activo limpiado.");
+      keepFocus();
+    });
+  }
 
   if (!canUseNativeCamera && !canUseHtml5Qrcode) {
     cameraMsg.textContent = "Escaneo por camara no soportado en este navegador.";
@@ -290,5 +416,8 @@
   });
 
   setInterval(keepFocus, 800);
+  renderWaiterState();
+  clearPendingPizza();
+  loadWaiters();
   keepFocus();
 })();

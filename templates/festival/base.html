@@ -3,16 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Festival Pizza{% endblock %}</title>
-  <link rel="stylesheet" href="/static/festival/css/app.css">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/assets/zentrastock_favicon_16.png">
+  <link rel="shortcut icon" href="/static/assets/zentrastock_favicon_16.png" type="image/png">
+  <title>{% block title %}zentraStock{% endblock %}</title>
+  <link rel="stylesheet" href="/static/festival/css/app.css?v=zentra-v1">
 </head>
-<body class="{% block body_class %}{% endblock %}">
+{% with active_branding=current_branding|default:"FESTIVAL" %}
+<body class="branding-{{ active_branding|lower }} {% block body_class %}{% endblock %}">
   <header class="topbar">
-    <a href="/" class="topbar-brand" aria-label="Cipriano Pizza">
-      <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-desktop">
-      <img src="/static/assets/logoLargo.png" alt="Cipriano" class="brand-logo brand-mobile">
+    <a href="/" class="zentra-badge" aria-label="zentraStock">
+      <img src="/static/assets/zentrastock_full_256-removebg.png" alt="zentraStock" class="zentra-logo">
     </a>
+
     {% if request.session.operator_id %}
+    <a href="/" class="topbar-brand" aria-label="Sistema activo">
+      {% if active_branding == "BURGERS" %}
+      <div class="brand-placeholder">DON</div>
+      {% else %}
+      <img src="/static/assets/logoLargo.png" alt="Cipriano Festival" class="brand-logo brand-desktop">
+      <img src="/static/assets/logoLargo.png" alt="Cipriano Festival" class="brand-logo brand-mobile">
+      {% endif %}
+      <span class="brand-copy">
+        <strong>{% if active_branding == "BURGERS" %}DON{% else %}Cipriano Festival{% endif %}</strong>
+        <small>{% if active_branding == "BURGERS" %}Hamburguesas{% else %}Festival de Pizzas{% endif %}</small>
+      </span>
+    </a>
+
     <nav class="topbar-nav" aria-label="Navegacion principal">
       {% if request.session.operator_role == "KITCHEN" or request.session.operator_role == "ADMIN" %}
       <a href="/kitchen/" {% if request.path == "/kitchen/" %}class="active"{% endif %}>Cocina</a>
@@ -28,13 +44,15 @@
       <a href="/admin-ops/" {% if request.path == "/admin-ops/" %}class="active"{% endif %}>Admin Ops</a>
       {% endif %}
     </nav>
+
     <div class="topbar-userbox">
       <span class="topbar-user">Usuario: {{ request.session.operator_username }}</span>
       <a class="topbar-logout" href="/logout/">Salir</a>
     </div>
     {% else %}
-    <nav class="topbar-nav">
-      <a href="/login/" class="active">Login</a>
+    <nav class="topbar-nav" aria-label="Ingreso">
+      <a href="/festival/login/" {% if request.path == "/festival/login/" %}class="active"{% endif %}>Cipriano Festival</a>
+      <a href="/don/login/" {% if request.path == "/don/login/" %}class="active"{% endif %}>DON</a>
     </nav>
     {% endif %}
   </header>
@@ -42,4 +60,6 @@
     {% block content %}{% endblock %}
   </main>
 </body>
+{% endwith %}
 </html>
+

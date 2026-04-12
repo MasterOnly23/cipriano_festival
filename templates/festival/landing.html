@@ -1,0 +1,25 @@
+{% extends "festival/base.html" %}
+{% block title %}zentraStock | Seleccionar Sistema{% endblock %}
+{% block body_class %}landing-page{% endblock %}
+{% block content %}
+<section class="panel landing-hero">
+  <img src="/static/assets/zentrastock_full_256-removebg.png" alt="zentraStock" class="landing-logo">
+  <h1>Selecciona el sistema</h1>
+  <p class="muted">Plataforma de gestion de inventario y operacion.</p>
+  {% if operator %}
+  <p class="muted">Sesion activa: <strong>{{ operator.username }}</strong>. Puedes entrar directo al modulo o cerrar sesion.</p>
+  {% endif %}
+  <div class="product-cards">
+    {% for p in products %}
+    <a href="{{ p.login_path }}" class="product-card product-{{ p.slug }}">
+      <span class="product-name">{{ p.display_name }}</span>
+      <span class="product-sub">{{ p.subtitle }}</span>
+      <span class="product-cta">Entrar</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% if operator %}
+  <a class="btn btn-alt" href="/logout/">Cerrar sesion actual</a>
+  {% endif %}
+</section>
+{% endblock %}
