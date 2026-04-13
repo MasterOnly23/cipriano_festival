@@ -5,6 +5,7 @@ venv/
 # Env files
 .env
 .env.local
+LOCAL_CREDENTIALS.md
 
 # Python cache
 __pycache__/

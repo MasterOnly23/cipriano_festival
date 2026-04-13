@@ -6,9 +6,10 @@
   <h1>{{ title }}</h1>
   <p class="muted">Escanea QR o codigo (scanner USB + Enter). El input se mantiene enfocado.</p>
   {% if mode == "SALES" %}
-  <p class="muted">Doble escaneo ventas: primero QR de mesero (W-XXXX), luego QR de pizza.</p>
+  <p class="muted">Doble escaneo ventas: primero QR/codigo de mesero (ej: 0007), luego QR de pizza.</p>
   {% endif %}
   <p class="muted">Operador: <strong>{{ operator.username }}</strong></p>
+  <p class="muted">Local: <strong>{% if operator_location == "SECONDARY" %}Secundario{% else %}Principal{% endif %}</strong></p>
 
   <div class="grid two">
     {% if mode == "SALES" %}
@@ -47,6 +48,24 @@
   </div>
 
   <div id="feedback" class="feedback neutral">Esperando scan...</div>
+
+  {% if mode == "KITCHEN" %}
+  <section class="subpanel">
+    <h2>Marcar por rango</h2>
+    <div class="grid three">
+      <label>
+        ID inicial
+        <input id="bulkStartId" type="text" placeholder="Ej: D1-JYQ-0001" autocapitalize="characters" spellcheck="false">
+      </label>
+      <label>
+        ID final
+        <input id="bulkEndId" type="text" placeholder="Ej: D1-JYQ-0024" autocapitalize="characters" spellcheck="false">
+      </label>
+      <button id="bulkReadyBtn" type="button" class="btn">Marcar rango LISTA</button>
+    </div>
+    <p id="bulkMsg" class="muted"></p>
+  </section>
+  {% endif %}
 
   <div class="result-card">
     <div><strong>ID:</strong> <span id="pizzaId">-</span></div>

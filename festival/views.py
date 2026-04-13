@@ -2,7 +2,8 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
-from django.db.models import Count, Sum
+from django.db.models import Count, Max, Min, Sum
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.core.paginator import Paginator, EmptyPage
@@ -22,10 +23,33 @@ from .auth_utils import (
     require_roles_api,
     require_roles_web,
 )
-from .models import BrandingType, PizzaItem, PizzaStatus, RoleType, ScanEvent, Waiter
+from .models import Batch, BrandingType, Flavor, LocationType, PizzaItem, PizzaStatus, RoleType, ScanEvent, TransferRecord, Waiter
 from .qr_pdf import build_labels_pdf, build_waiters_labels_pdf
-from .serializers import PizzaItemSerializer, ScanEventSerializer, WaiterSerializer
-from .services import Actor, TransitionError, admin_set_status, create_batch, create_waiter, process_scan, undo_last
+from .serializers import (
+    BatchSerializer,
+    FlavorSerializer,
+    PizzaItemSerializer,
+    ScanEventSerializer,
+    TransferRecordSerializer,
+    WaiterSerializer,
+)
+from .services import (
+    Actor,
+    TransitionError,
+    admin_set_status,
+    bulk_mark_ready,
+    create_batch,
+    create_flavor,
+    create_waiter,
+    deactivate_flavor,
+    delete_flavor,
+    process_scan,
+    reactivate_flavor,
+    return_items_to_main,
+    transfer_items_to_secondary,
+    undo_last,
+    update_flavor,
+)
 
 
 BRANDING_META = {
@@ -34,20 +58,134 @@ BRANDING_META = {
         "display_name": "Cipriano Festival",
         "subtitle": "Operacion de pizzas",
         "login_path": "/festival/login/",
-        "users_hint": "cocina | ventas | lotes | admin",
+        "users_hint": "cocina | ventas | ventassec | lotes | admin",
     },
     BrandingType.BURGERS: {
         "slug": "don",
         "display_name": "DON",
         "subtitle": "Operacion de hamburguesas",
         "login_path": "/don/login/",
-        "users_hint": "cocinaburger | ventasburger | lotesburger | admin",
+        "users_hint": "cocinaburger | ventasburger | ventasburgersec | lotesburger | admin",
     },
 }
 
 
 def _brand_context(branding: str) -> dict:
     return BRANDING_META.get(branding, BRANDING_META[BrandingType.FESTIVAL])
+
+
+def _active_flavors(branding: str):
+    return Flavor.objects.filter(branding=branding, is_active=True).order_by("sort_order", "name")
+
+
+def _serialize_dashboard_event(event: ScanEvent) -> dict:
+    return {
+        "id": event.id,
+        "pizza_id": event.pizza_id,
+        "mode": event.mode,
+        "actor_name": event.actor_name,
+        "actor_role": event.actor_role,
+        "from_location": event.from_location,
+        "to_location": event.to_location,
+        "from_status": event.from_status,
+        "to_status": event.to_status,
+        "waiter_code": event.waiter_code,
+        "waiter_name": event.waiter_name,
+        "note": event.note,
+        "created_at": event.created_at.isoformat() if event.created_at else "",
+        "undone": event.undone,
+        "summary_count": 1,
+    }
+
+
+def _group_dashboard_events(events: list[ScanEvent], *, allow_grouping: bool = True) -> list[dict]:
+    if not allow_grouping:
+        return [_serialize_dashboard_event(event) for event in events]
+
+    grouped: list[dict] = []
+    index = 0
+    while index < len(events):
+        event = events[index]
+        note = (event.note or "").strip()
+        if event.mode == "KITCHEN" and note.startswith("bulk-ready|"):
+            parts = note.split("|")
+            first_id = event.pizza_id
+            last_id = event.pizza_id
+            summary_count = 1
+            if len(parts) >= 4:
+                first_id = parts[1] or first_id
+                last_id = parts[2] or last_id
+                try:
+                    summary_count = max(1, int(parts[3]))
+                except ValueError:
+                    summary_count = 1
+            next_index = index + 1
+            while next_index < len(events) and (events[next_index].note or "").strip() == note:
+                next_index += 1
+            grouped.append(
+                {
+                    "id": event.id,
+                    "pizza_id": f"{first_id} -> {last_id}",
+                    "mode": event.mode,
+                    "actor_name": event.actor_name,
+                    "actor_role": event.actor_role,
+                    "from_location": event.from_location,
+                    "to_location": event.to_location,
+                    "from_status": event.from_status,
+                    "to_status": event.to_status,
+                    "waiter_code": "",
+                    "waiter_name": "",
+                    "note": note,
+                    "created_at": event.created_at.isoformat() if event.created_at else "",
+                    "undone": event.undone,
+                    "summary_count": summary_count,
+                }
+            )
+            index = next_index
+            continue
+        if event.mode == "TRANSFER" and note.startswith("transfer-range|"):
+            parts = note.split("|")
+            from_location = event.from_location
+            to_location = event.to_location
+            first_id = event.pizza_id
+            last_id = event.pizza_id
+            summary_count = 1
+            if len(parts) >= 6:
+                from_location = parts[1] or from_location
+                to_location = parts[2] or to_location
+                first_id = parts[3] or first_id
+                last_id = parts[4] or last_id
+                try:
+                    summary_count = max(1, int(parts[5]))
+                except ValueError:
+                    summary_count = 1
+            next_index = index + 1
+            while next_index < len(events) and (events[next_index].note or "").strip() == note:
+                next_index += 1
+            grouped.append(
+                {
+                    "id": event.id,
+                    "pizza_id": f"{first_id} -> {last_id}",
+                    "mode": event.mode,
+                    "actor_name": event.actor_name,
+                    "actor_role": event.actor_role,
+                    "from_location": from_location,
+                    "to_location": to_location,
+                    "from_status": event.from_status,
+                    "to_status": event.to_status,
+                    "waiter_code": "",
+                    "waiter_name": "",
+                    "note": note,
+                    "created_at": event.created_at.isoformat() if event.created_at else "",
+                    "undone": event.undone,
+                    "summary_count": summary_count,
+                }
+            )
+            index = next_index
+            continue
+        grouped.append(_serialize_dashboard_event(event))
+        index += 1
+    return grouped
 
 
 def landing_view(request):
@@ -114,7 +252,9 @@ def login_view(request, forced_branding: str | None = None):
         pin = (request.POST.get("pin") or "").strip()
         next_url = (request.POST.get("next") or "/app/").strip()
         if not next_url.startswith("/"):
-            next_url = "/"
+            next_url = "/app/"
+        if next_url == "/":
+            next_url = "/app/"
         if not username or not pin:
             error = "Usuario y PIN requeridos."
         else:
@@ -188,6 +328,7 @@ def kitchen_view(request):
             "title": "Modo Cocina",
             "operator": request.current_operator,
             "current_branding": request.current_branding,
+            "operator_location": request.current_operator.location,
         },
     )
 
@@ -202,6 +343,7 @@ def sales_view(request):
             "title": "Modo Ventas",
             "operator": request.current_operator,
             "current_branding": request.current_branding,
+            "operator_location": request.current_operator.location,
         },
     )
 
@@ -211,7 +353,11 @@ def dashboard_view(request):
     return render(
         request,
         "festival/dashboard.html",
-        {"operator": request.current_operator, "current_branding": request.current_branding},
+        {
+            "operator": request.current_operator,
+            "current_branding": request.current_branding,
+            "flavors": _active_flavors(request.current_branding),
+        },
     )
 
 
@@ -220,7 +366,11 @@ def batches_view(request):
     return render(
         request,
         "festival/batches.html",
-        {"operator": request.current_operator, "current_branding": request.current_branding},
+        {
+            "operator": request.current_operator,
+            "current_branding": request.current_branding,
+            "flavors": _active_flavors(request.current_branding),
+        },
     )
 
 
@@ -229,8 +379,107 @@ def admin_ops_view(request):
     return render(
         request,
         "festival/admin_ops.html",
-        {"operator": request.current_operator, "current_branding": request.current_branding},
+        {
+            "operator": request.current_operator,
+            "current_branding": request.current_branding,
+            "flavors": _active_flavors(request.current_branding),
+            "recent_transfers": TransferRecord.objects.filter(branding=request.current_branding)[:8],
+        },
     )
+
+
+class FlavorAPIView(APIView):
+    def get(self, request):
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "SALES", "ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        flavors = _active_flavors(active_branding)
+        return Response({"ok": True, "flavors": FlavorSerializer(flavors, many=True).data})
+
+    def post(self, request):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        name = (request.data.get("name") or "").strip()
+        prefix = (request.data.get("prefix") or "").strip()
+        try:
+            flavor = create_flavor(name=name, prefix=prefix, actor_name=operator.username, branding=active_branding)
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "flavor": FlavorSerializer(flavor).data})
+
+
+class InactiveFlavorAPIView(APIView):
+    def get(self, request):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        query = (request.GET.get("q") or "").strip()
+        flavors = Flavor.objects.filter(branding=active_branding, is_active=False).order_by("sort_order", "name")
+        if query:
+            flavors = flavors.filter(Q(name__icontains=query) | Q(prefix__icontains=query))
+        return Response({"ok": True, "flavors": FlavorSerializer(flavors, many=True).data})
+
+
+class FlavorDetailAPIView(APIView):
+    def put(self, request, flavor_id: int):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        name = (request.data.get("name") or "").strip()
+        prefix = (request.data.get("prefix") or "").strip()
+        try:
+            flavor = update_flavor(
+                flavor_id=flavor_id,
+                name=name,
+                prefix=prefix,
+                actor_name=operator.username,
+                branding=active_branding,
+            )
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "flavor": FlavorSerializer(flavor).data})
+
+    def delete(self, request, flavor_id: int):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        try:
+            delete_flavor(flavor_id=flavor_id, branding=active_branding)
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "message": "Sabor eliminado"})
+
+
+class FlavorDeactivateAPIView(APIView):
+    def post(self, request, flavor_id: int):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        try:
+            flavor = deactivate_flavor(flavor_id=flavor_id, actor_name=operator.username, branding=active_branding)
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "message": "Sabor desactivado", "flavor": FlavorSerializer(flavor).data})
+
+
+class FlavorReactivateAPIView(APIView):
+    def post(self, request, flavor_id: int):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        try:
+            flavor = reactivate_flavor(flavor_id=flavor_id, actor_name=operator.username, branding=active_branding)
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "message": "Sabor reactivado", "flavor": FlavorSerializer(flavor).data})
 
 
 class ScanAPIView(APIView):
@@ -260,7 +509,11 @@ class ScanAPIView(APIView):
             item, event = process_scan(
                 pizza_id=pizza_id,
                 mode=mode,
-                actor=Actor(name=operator.username, role=ROLE_LABEL_MAP.get(operator.role, RoleType.ADMIN)),
+                actor=Actor(
+                    name=operator.username,
+                    role=ROLE_LABEL_MAP.get(operator.role, RoleType.ADMIN),
+                    location=operator.location,
+                ),
                 flavor_if_empty=flavor_if_empty,
                 override_pin=override_pin,
                 waiter_code=waiter_code,
@@ -275,6 +528,38 @@ class ScanAPIView(APIView):
                 "message": f"OK {item.id} => {item.status}",
                 "pizza": PizzaItemSerializer(item).data,
                 "event": ScanEventSerializer(event).data,
+            }
+        )
+
+
+class KitchenBulkReadyAPIView(APIView):
+    def post(self, request):
+        operator, error, error_status = require_roles_api(request, ["KITCHEN", "ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        start_id = (request.data.get("start_id") or "").strip().upper()
+        end_id = (request.data.get("end_id") or "").strip().upper()
+        try:
+            count, first_id, last_id = bulk_mark_ready(
+                start_id=start_id,
+                end_id=end_id,
+                actor=Actor(
+                    name=operator.username,
+                    role=ROLE_LABEL_MAP.get(operator.role, RoleType.ADMIN),
+                    location=operator.location,
+                ),
+                branding=active_branding,
+            )
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "ok": True,
+                "message": f"{count} pizzas marcadas LISTA ({first_id} a {last_id})",
+                "count": count,
+                "first_id": first_id,
+                "last_id": last_id,
             }
         )
 
@@ -428,6 +713,29 @@ class BatchGenerateAPIView(APIView):
         )
 
 
+class BatchListAPIView(APIView):
+    def get(self, request):
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        query = (request.GET.get("q") or "").strip()
+        batches = (
+            Batch.objects.filter(branding=active_branding)
+            .annotate(
+                total_items=Count("pizzas"),
+                first_item_id=Min("pizzas__id"),
+                last_item_id=Max("pizzas__id"),
+            )
+            .order_by("-created_at", "-id")
+        )
+        if query:
+            batches = batches.filter(
+                Q(code__icontains=query) | Q(notes__icontains=query) | Q(created_by__icontains=query)
+            )
+        return Response({"ok": True, "batches": BatchSerializer(batches[:80], many=True).data})
+
+
 class BatchLabelsAPIView(APIView):
     def get(self, request, batch_code: str):
         operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
@@ -472,6 +780,7 @@ class DashboardDataAPIView(APIView):
         pizza_id = (request.GET.get("pizza_id") or "").strip().upper()
         flavor = (request.GET.get("flavor") or "").strip().upper()
         waiter_name = (request.GET.get("waiter_name") or "").strip().upper()
+        location = (request.GET.get("location") or "").strip().upper()
         date_from, date_from_error = _parse_iso_date(request.GET.get("date_from"), "date_from")
         date_to, date_to_error = _parse_iso_date(request.GET.get("date_to"), "date_to")
         if date_from_error:
@@ -484,7 +793,7 @@ class DashboardDataAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        sales_filter_active = bool(flavor or waiter_name or date_from or date_to)
+        sales_filter_active = bool(flavor or waiter_name or location or date_from or date_to)
         if sales_filter_active and not mode:
             mode = "SALES"
         if sales_filter_active and not to_status:
@@ -501,11 +810,29 @@ class DashboardDataAPIView(APIView):
             revenue_qs = revenue_qs.filter(flavor=flavor)
         if waiter_name:
             revenue_qs = revenue_qs.filter(sold_by__icontains=waiter_name)
+        if location:
+            revenue_qs = revenue_qs.filter(sold_location=location)
         if date_from:
             revenue_qs = revenue_qs.filter(sold_at__date__gte=date_from)
         if date_to:
             revenue_qs = revenue_qs.filter(sold_at__date__lte=date_to)
         revenue = revenue_qs.aggregate(total=Sum("price")).get("total")
+        sold_by_location = {
+            row["sold_location"]: row["total"]
+            for row in PizzaItem.objects.filter(
+                branding=active_branding,
+                status=PizzaStatus.VENDIDA,
+            )
+            .exclude(sold_location="")
+            .values("sold_location")
+            .annotate(total=Count("id"))
+        }
+        transfer_qs = TransferRecord.objects.filter(
+            branding=active_branding,
+            from_location=LocationType.MAIN,
+            to_location=LocationType.SECONDARY,
+        )
+        transferred_to_secondary = transfer_qs.aggregate(total=Sum("quantity")).get("total") or 0
 
         latest_qs = ScanEvent.objects.select_related("pizza").filter(branding=active_branding)
         if mode:
@@ -518,12 +845,17 @@ class DashboardDataAPIView(APIView):
             latest_qs = latest_qs.filter(pizza__flavor=flavor)
         if waiter_name:
             latest_qs = latest_qs.filter(waiter_name__icontains=waiter_name)
+        if location:
+            latest_qs = latest_qs.filter(to_location=location)
         if date_from:
             latest_qs = latest_qs.filter(pizza__sold_at__date__gte=date_from)
         if date_to:
             latest_qs = latest_qs.filter(pizza__sold_at__date__lte=date_to)
 
-        paginator = Paginator(latest_qs, page_size)
+        latest_items_all = list(latest_qs)
+        latest_grouped = _group_dashboard_events(latest_items_all, allow_grouping=not bool(pizza_id))
+
+        paginator = Paginator(latest_grouped, page_size)
         if paginator.count == 0:
             latest_items = []
             pagination = {
@@ -554,7 +886,12 @@ class DashboardDataAPIView(APIView):
                 "ok": True,
                 "counts": counts,
                 "revenue_sold": str(revenue or "0"),
-                "latest": ScanEventSerializer(latest_items, many=True).data,
+                "sold_by_location": {
+                    "MAIN": sold_by_location.get(LocationType.MAIN, 0),
+                    "SECONDARY": sold_by_location.get(LocationType.SECONDARY, 0),
+                },
+                "transferred_to_secondary": transferred_to_secondary,
+                "latest": latest_items,
                 "pagination": pagination,
                 "filters": {
                     "mode": mode,
@@ -562,6 +899,7 @@ class DashboardDataAPIView(APIView):
                     "pizza_id": pizza_id,
                     "flavor": flavor,
                     "waiter_name": waiter_name,
+                    "location": location,
                     "date_from": date_from.isoformat() if date_from else "",
                     "date_to": date_to.isoformat() if date_to else "",
                 },
@@ -578,6 +916,7 @@ class SalesExportXLSAPIView(APIView):
 
         flavor = (request.GET.get("flavor") or "").strip().upper()
         waiter_name = (request.GET.get("waiter_name") or "").strip().upper()
+        location = (request.GET.get("location") or "").strip().upper()
         date_from, date_from_error = _parse_iso_date(request.GET.get("date_from"), "date_from")
         date_to, date_to_error = _parse_iso_date(request.GET.get("date_to"), "date_to")
         if date_from_error:
@@ -597,6 +936,8 @@ class SalesExportXLSAPIView(APIView):
             sales_qs = sales_qs.filter(flavor=flavor)
         if waiter_name:
             sales_qs = sales_qs.filter(sold_by__icontains=waiter_name)
+        if location:
+            sales_qs = sales_qs.filter(sold_location=location)
         if date_from:
             sales_qs = sales_qs.filter(sold_at__date__gte=date_from)
         if date_to:
@@ -609,8 +950,11 @@ class SalesExportXLSAPIView(APIView):
             filename += f"-{flavor}"
         if waiter_name:
             filename += f"-{waiter_name}"
+        if location:
+            filename += f"-{location}"
         flavor_label = flavor if flavor else "TODOS LOS SABORES"
         waiter_label = waiter_name if waiter_name else "TODOS LOS MESEROS"
+        location_label = location if location else "TODOS LOS LOCALES"
         from_label = date_from.isoformat() if date_from else "INICIO"
         to_label = date_to.isoformat() if date_to else "HOY"
         total_revenue = Decimal("0")
@@ -631,6 +975,7 @@ class SalesExportXLSAPIView(APIView):
                 f"<td style='mso-number-format:\"#,##0.00\"'>{item.price:.2f}</td>"
                 f"<td>{escape(sold_date)}</td>"
                 f"<td>{escape(sold_time)}</td>"
+                f"<td>{escape(item.sold_location or '')}</td>"
                 f"<td>{escape(item.sold_by or '')}</td>"
                 "</tr>"
             )
@@ -646,9 +991,9 @@ class SalesExportXLSAPIView(APIView):
       <td colspan="7" style="background:#924E37;color:#FFFFFF;font-size:16pt;font-weight:bold;text-align:center;">CIPRIANO - REPORTE DE VENTAS</td>
     </tr>
     <tr>
-      <td colspan="7" style="background:#F4E8CD;color:#1B3240;font-weight:bold;text-align:center;">Filtro sabor: {escape(flavor_label)} | Mesero: {escape(waiter_label)} | Periodo: {escape(from_label)} a {escape(to_label)}</td>
+      <td colspan="8" style="background:#F4E8CD;color:#1B3240;font-weight:bold;text-align:center;">Filtro sabor: {escape(flavor_label)} | Mesero: {escape(waiter_label)} | Local: {escape(location_label)} | Periodo: {escape(from_label)} a {escape(to_label)}</td>
     </tr>
-    <tr><td colspan="7" style="background:#FFFFFF;"></td></tr>
+    <tr><td colspan="8" style="background:#FFFFFF;"></td></tr>
     <tr style="background:#1B3240;color:#FFFFFF;font-weight:bold;text-align:center;">
       <td>ID</td>
       <td>Sabor</td>
@@ -656,19 +1001,20 @@ class SalesExportXLSAPIView(APIView):
       <td>Precio</td>
       <td>Fecha venta</td>
       <td>Hora venta</td>
+      <td>Local</td>
       <td>Mesero</td>
     </tr>
     {''.join(rows_html)}
-    <tr><td colspan="7" style="background:#FFFFFF;"></td></tr>
+    <tr><td colspan="8" style="background:#FFFFFF;"></td></tr>
     <tr>
       <td style="background:#F4E8CD;color:#1B3240;font-weight:bold;">TOTAL VENTAS</td>
       <td style="background:#F4E8CD;color:#1B3240;font-weight:bold;">{total_items}</td>
-      <td colspan="5"></td>
+      <td colspan="6"></td>
     </tr>
     <tr>
       <td style="background:#F4E8CD;color:#1B3240;font-weight:bold;">TOTAL FACTURADO</td>
       <td style="background:#F4E8CD;color:#1B3240;font-weight:bold;mso-number-format:'#,##0.00';">{total_revenue:.2f}</td>
-      <td colspan="5"></td>
+      <td colspan="6"></td>
     </tr>
   </table>
 </body>
@@ -692,7 +1038,7 @@ class AdminStatusAPIView(APIView):
         pizza_id = (request.data.get("id") or "").strip().upper()
         to_status = (request.data.get("to_status") or "").strip().upper()
         pin = (request.data.get("pin") or "").strip()
-        actor = Actor(name=operator.username, role=RoleType.ADMIN)
+        actor = Actor(name=operator.username, role=RoleType.ADMIN, location=operator.location)
 
         try:
             item, event = admin_set_status(
@@ -718,7 +1064,7 @@ class UndoAPIView(APIView):
         active_branding = get_active_branding(request)
 
         pin = (request.data.get("pin") or "").strip()
-        actor = Actor(name=operator.username, role=RoleType.ADMIN)
+        actor = Actor(name=operator.username, role=RoleType.ADMIN, location=operator.location)
 
         try:
             item, event = undo_last(pin=pin, actor=actor, branding=active_branding)
@@ -745,3 +1091,65 @@ class AdminVerifyPinAPIView(APIView):
         if pin != settings.ADMIN_ACTIONS_PIN:
             return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"ok": True, "message": "PIN valido"})
+
+
+class TransferToSecondaryAPIView(APIView):
+    def post(self, request):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        pin = (request.data.get("pin") or "").strip()
+        if pin != settings.ADMIN_ACTIONS_PIN:
+            return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
+        start_id = (request.data.get("start_id") or "").strip().upper()
+        end_id = (request.data.get("end_id") or "").strip().upper()
+        note = (request.data.get("note") or "").strip()
+        try:
+            transfer, count = transfer_items_to_secondary(
+                start_id=start_id,
+                end_id=end_id,
+                actor=Actor(name=operator.username, role=RoleType.ADMIN, location=operator.location),
+                branding=active_branding,
+                note=note,
+            )
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "ok": True,
+                "message": f"Transferidas {count} pizzas al local secundario",
+                "transfer": TransferRecordSerializer(transfer).data,
+            }
+        )
+
+
+class ReturnToMainAPIView(APIView):
+    def post(self, request):
+        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        pin = (request.data.get("pin") or "").strip()
+        if pin != settings.ADMIN_ACTIONS_PIN:
+            return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
+        start_id = (request.data.get("start_id") or "").strip().upper()
+        end_id = (request.data.get("end_id") or "").strip().upper()
+        note = (request.data.get("note") or "").strip()
+        try:
+            transfer, count = return_items_to_main(
+                start_id=start_id,
+                end_id=end_id,
+                actor=Actor(name=operator.username, role=RoleType.ADMIN, location=operator.location),
+                branding=active_branding,
+                note=note,
+            )
+        except TransitionError as exc:
+            return Response({"ok": False, "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "ok": True,
+                "message": f"Devueltas {count} pizzas al local principal",
+                "transfer": TransferRecordSerializer(transfer).data,
+            }
+        )

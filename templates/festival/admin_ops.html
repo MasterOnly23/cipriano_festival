@@ -22,6 +22,147 @@
 </section>
 
 <section class="panel">
+  <h2>Sabores</h2>
+  <div class="grid three">
+    <label>
+      Nombre sabor
+      <input id="flavorNameInput" type="text" placeholder="Ej: FUGAZZETA" autocapitalize="characters" spellcheck="false">
+    </label>
+    <label>
+      Prefijo
+      <input id="flavorPrefixInput" type="text" placeholder="Ej: FUG" autocapitalize="characters" spellcheck="false">
+    </label>
+    <button id="createFlavorBtn" type="button" class="btn">Agregar sabor</button>
+  </div>
+  <p id="flavorMsg" class="muted"></p>
+  <div class="table-wrap">
+    <table class="events-table">
+      <thead>
+        <tr>
+          <th>Sabor</th>
+          <th>Prefijo</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="flavorTableBody">
+        {% for flavor in flavors %}
+        <tr data-flavor-id="{{ flavor.id }}" data-flavor-name="{{ flavor.name }}" data-flavor-prefix="{{ flavor.prefix }}">
+          <td data-label="Sabor" class="flavor-name-cell">{{ flavor.name }}</td>
+          <td data-label="Prefijo" class="flavor-prefix-cell">{{ flavor.prefix }}</td>
+          <td data-label="Acciones" class="flavor-actions-cell">
+            <div class="row-action-menu">
+              <button
+                type="button"
+                class="row-action-trigger"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-label="Abrir acciones"
+              >
+                <img src="/static/assets/icons/menu-puntos-vertical.svg" alt="" class="row-action-trigger-icon">
+              </button>
+              <div class="row-action-dropdown hidden">
+                <button
+                  type="button"
+                  class="row-action-item edit-flavor-btn"
+                  data-flavor-id="{{ flavor.id }}"
+                  data-flavor-name="{{ flavor.name }}"
+                  data-flavor-prefix="{{ flavor.prefix }}"
+                >
+                  <img src="/static/assets/icons/editar.svg" alt="" class="row-action-icon">
+                  <span>Editar</span>
+                </button>
+                <button
+                  type="button"
+                  class="row-action-item row-action-item-warn deactivate-flavor-btn"
+                  data-flavor-id="{{ flavor.id }}"
+                  data-flavor-name="{{ flavor.name }}"
+                >
+                  <img src="/static/assets/icons/cerrar.svg" alt="" class="row-action-icon">
+                  <span>Desactivar</span>
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">Sin sabores configurados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="flavor-footer-actions">
+    <button id="showInactiveFlavorsBtn" type="button" class="btn btn-alt">Ver desactivados</button>
+  </div>
+</section>
+
+<div id="flavorModal" class="modal-shell hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close-flavor-modal="1"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="flavorModalTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="flavorModalTitle">Editar sabor</h3>
+        <p class="muted modal-subtitle">Actualiza nombre y prefijo sin salir de esta pantalla.</p>
+      </div>
+      <button id="closeFlavorModalBtn" type="button" class="modal-close" aria-label="Cerrar">×</button>
+    </div>
+    <div class="grid two modal-grid">
+      <label>
+        Nombre sabor
+        <input id="editFlavorNameInput" type="text" autocapitalize="characters" spellcheck="false">
+      </label>
+      <label>
+        Prefijo
+        <input id="editFlavorPrefixInput" type="text" autocapitalize="characters" spellcheck="false">
+      </label>
+    </div>
+    <p id="editFlavorMsg" class="muted"></p>
+    <div class="modal-actions">
+      <button id="saveFlavorBtn" type="button" class="btn">Guardar cambios</button>
+      <button id="cancelFlavorBtn" type="button" class="btn btn-alt">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="inactiveFlavorsModal" class="modal-shell hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close-inactive-modal="1"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="inactiveFlavorsModalTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="inactiveFlavorsModalTitle">Sabores desactivados</h3>
+        <p class="muted modal-subtitle">Busca por nombre o prefijo. Solo aqui se permite eliminar fisicamente.</p>
+      </div>
+      <button id="closeInactiveFlavorsModalBtn" type="button" class="modal-close" aria-label="Cerrar">×</button>
+    </div>
+    <label>
+      Filtrar
+      <input id="inactiveFlavorSearchInput" type="text" placeholder="Ej: JAMON o JYQ" autocapitalize="characters" spellcheck="false">
+    </label>
+    <p id="inactiveFlavorMsg" class="muted"></p>
+    <div id="inactiveFlavorList" class="inactive-flavor-list"></div>
+    <div class="modal-actions">
+      <button id="closeInactiveFlavorFooterBtn" type="button" class="btn btn-alt">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmActionModal" class="modal-shell hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close-confirm-modal="1"></div>
+  <div class="modal-card modal-card-sm" role="dialog" aria-modal="true" aria-labelledby="confirmActionTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="confirmActionTitle">Confirmar accion</h3>
+        <p id="confirmActionText" class="muted modal-subtitle">Confirma para continuar.</p>
+      </div>
+      <button id="closeConfirmActionModalBtn" type="button" class="modal-close" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-actions">
+      <button id="confirmActionCancelBtn" type="button" class="btn btn-alt">Cancelar</button>
+      <button id="confirmActionOkBtn" type="button" class="btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<section class="panel">
   <h2>Marcar estado manual</h2>
   <div class="grid three">
     <label>
@@ -38,6 +179,63 @@
     <button id="setStatusBtn" type="button" class="btn">Aplicar estado</button>
   </div>
   <p id="statusMsg" class="muted"></p>
+</section>
+
+<section class="panel">
+  <h2>Movimientos entre locales</h2>
+  <div class="grid three">
+    <label>
+      ID inicial
+      <input id="transferStartId" type="text" placeholder="Ej: D1-JYQ-0001" autocapitalize="characters" spellcheck="false">
+    </label>
+    <label>
+      ID final
+      <input id="transferEndId" type="text" placeholder="Ej: D1-JYQ-0010" autocapitalize="characters" spellcheck="false">
+    </label>
+    <label>
+      Nota
+      <input id="transferNote" type="text" placeholder="Opcional">
+    </label>
+  </div>
+  <div class="filter-actions">
+    <button id="transferBtn" type="button" class="btn">Enviar a secundario</button>
+    <button id="returnBtn" type="button" class="btn btn-alt">Devolver a principal</button>
+  </div>
+  <p id="transferMsg" class="muted"></p>
+  <div class="table-wrap">
+    <table class="events-table">
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Direccion</th>
+          <th>Rango</th>
+          <th>Cantidad</th>
+          <th>Responsable</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for transfer in recent_transfers %}
+        <tr>
+          <td data-label="Hora">{{ transfer.created_at|date:"H:i" }}</td>
+          <td data-label="Direccion">
+            {% if transfer.from_location == "MAIN" and transfer.to_location == "SECONDARY" %}
+            Principal -> Secundario
+            {% elif transfer.from_location == "SECONDARY" and transfer.to_location == "MAIN" %}
+            Secundario -> Principal
+            {% else %}
+            {{ transfer.from_location }} -> {{ transfer.to_location }}
+            {% endif %}
+          </td>
+          <td data-label="Rango">{{ transfer.first_id }} -> {{ transfer.last_id }}</td>
+          <td data-label="Cantidad">{{ transfer.quantity }}</td>
+          <td data-label="Responsable">{{ transfer.created_by }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">Sin movimientos registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 
 <section class="panel">
