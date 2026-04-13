@@ -22,6 +22,10 @@
   const clearWaiterBtn = document.getElementById("clearWaiterBtn");
   const pendingPizzaId = document.getElementById("pendingPizzaId");
   const clearPendingBtn = document.getElementById("clearPendingBtn");
+  const bulkStartId = document.getElementById("bulkStartId");
+  const bulkEndId = document.getElementById("bulkEndId");
+  const bulkReadyBtn = document.getElementById("bulkReadyBtn");
+  const bulkMsg = document.getElementById("bulkMsg");
 
   const canUseNativeCamera = !!(navigator.mediaDevices && window.BarcodeDetector);
   const canUseHtml5Qrcode = !!(navigator.mediaDevices && window.Html5Qrcode);
@@ -39,8 +43,47 @@
   let pendingTimerId = null;
   const pendingTimeoutMs = 45000;
 
+  function findWaiterByCode(code) {
+    return waitersByCode[(code || "").trim().toUpperCase()] || null;
+  }
+
+  function isEditableElement(element) {
+    if (!element) {
+      return false;
+    }
+    const tag = (element.tagName || "").toUpperCase();
+    return (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      element.isContentEditable
+    );
+  }
+
   function keepFocus() {
-    if (document.activeElement !== input) {
+    if (!input) {
+      return;
+    }
+    const active = document.activeElement;
+    if (active === input) {
+      return;
+    }
+    if (isEditableElement(active)) {
+      return;
+    }
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+    if (cameraPanel && !cameraPanel.classList.contains("hidden")) {
+      return;
+    }
+    if (document.hasFocus && !document.hasFocus()) {
+      return;
+    }
+    if (input.offsetParent === null) {
+      return;
+    }
+    if (!input.disabled && !input.readOnly) {
       input.focus();
     }
   }
@@ -168,8 +211,9 @@
     }
     const normalized = code.trim().toUpperCase();
     input.value = normalized;
-    if (mode === "SALES" && normalized.startsWith("W-")) {
-      const waiter = waitersByCode[normalized];
+    const matchedWaiter = mode === "SALES" ? findWaiterByCode(normalized) : null;
+    if (matchedWaiter) {
+      const waiter = matchedWaiter;
       if (!waiter) {
         paintResult({ error: `Mesero no encontrado: ${normalized}` }, true);
         beep(false);
@@ -398,6 +442,44 @@
       currentWaiter = null;
       renderWaiterState();
       paintNeutral("Mesero activo limpiado.");
+      keepFocus();
+    });
+  }
+  if (bulkStartId) {
+    bulkStartId.addEventListener("input", () => {
+      bulkStartId.value = bulkStartId.value.toUpperCase();
+    });
+  }
+  if (bulkEndId) {
+    bulkEndId.addEventListener("input", () => {
+      bulkEndId.value = bulkEndId.value.toUpperCase();
+    });
+  }
+  if (bulkReadyBtn && bulkStartId && bulkEndId && bulkMsg) {
+    bulkReadyBtn.addEventListener("click", async () => {
+      const startId = bulkStartId.value.trim().toUpperCase();
+      const endId = bulkEndId.value.trim().toUpperCase();
+      if (!startId || !endId) {
+        bulkMsg.textContent = "Ingresa ID inicial y final.";
+        return;
+      }
+      bulkMsg.textContent = "Procesando rango...";
+      const res = await fetch("/api/kitchen/bulk-ready", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_id: startId, end_id: endId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        bulkMsg.textContent = data.error || "Error al marcar rango";
+        return;
+      }
+      bulkMsg.textContent = data.message;
+      bulkStartId.value = "";
+      bulkEndId.value = "";
+      paintNeutral(data.message);
+      beep(true);
+      vibe(true);
       keepFocus();
     });
   }

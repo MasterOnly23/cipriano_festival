@@ -19,13 +19,25 @@
   const createWaiterBtn = document.getElementById("createWaiterBtn");
   const waiterMsg = document.getElementById("waiterMsg");
   const waiterPdfLink = document.getElementById("waiterPdfLink");
-  const flavorToPrefix = {
-    DIAVOLA: "DIA",
-    "DIAVOLA A MI MANERA": "DAM",
-    "JAMON Y QUESO": "JYQ",
-    "HAMBURGUESA CLASICA": "BUR",
-  };
+  const showBatchHistoryBtn = document.getElementById("showBatchHistoryBtn");
+  const batchHistoryModal = document.getElementById("batchHistoryModal");
+  const closeBatchHistoryModalBtn = document.getElementById("closeBatchHistoryModalBtn");
+  const closeBatchHistoryFooterBtn = document.getElementById("closeBatchHistoryFooterBtn");
+  const batchHistorySearchInput = document.getElementById("batchHistorySearchInput");
+  const batchHistoryMsg = document.getElementById("batchHistoryMsg");
+  const batchHistoryList = document.getElementById("batchHistoryList");
+  const flavorToPrefix = {};
+  if (flavorName) {
+    for (const option of flavorName.options) {
+      const name = (option.value || "").trim().toUpperCase();
+      const prefix = (option.dataset.prefix || "").trim().toUpperCase();
+      if (name && prefix) {
+        flavorToPrefix[name] = prefix;
+      }
+    }
+  }
   let startNumberUnlocked = false;
+  let batchHistorySearchTimer = null;
 
   function syncPrefixFromFlavor() {
     const selectedFlavor = flavorName.value.trim().toUpperCase();
@@ -51,6 +63,83 @@
     }
   }
 
+  function renderBatchHistory(batches) {
+    if (!batchHistoryList) {
+      return;
+    }
+    if (!Array.isArray(batches) || batches.length === 0) {
+      batchHistoryList.innerHTML = `<div class="history-empty">No hay lotes para este filtro.</div>`;
+      return;
+    }
+    batchHistoryList.innerHTML = batches
+      .map((batch) => {
+        const day = batch.day || "";
+        const createdAt = batch.created_at ? new Date(batch.created_at).toLocaleString() : "";
+        const notes = batch.notes || "Sin notas";
+        const code = batch.code || "";
+        const codeParts = code.split("-");
+        const flavorPrefixLabel = codeParts.length >= 2 ? codeParts[1] : "-";
+        const firstItemId = batch.first_item_id || "-";
+        const lastItemId = batch.last_item_id || "-";
+        return `
+          <article class="history-card">
+            <div class="history-card-main">
+              <strong>${code}</strong>
+              <span>Fecha ${day}</span>
+              <span>Prefijo sabor ${flavorPrefixLabel}</span>
+              <span>Rango ${firstItemId} a ${lastItemId}</span>
+              <span>Items ${batch.total_items || 0}</span>
+              <span>Operador ${batch.created_by || "-"}</span>
+              <span>Creado ${createdAt}</span>
+              <span class="history-notes">${notes}</span>
+            </div>
+            <div class="history-card-actions">
+              <a class="btn btn-alt btn-small" href="/api/batches/${batch.code}/labels.pdf" target="_blank" rel="noopener noreferrer">PDF</a>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  async function loadBatchHistory(query = "") {
+    if (!batchHistoryMsg || !batchHistoryList) {
+      return;
+    }
+    batchHistoryMsg.textContent = "Cargando lotes...";
+    const qs = query ? `?q=${encodeURIComponent(query.trim().toUpperCase())}` : "";
+    const res = await fetch(`/api/batches${qs}`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      batchHistoryMsg.textContent = data.error || "Error al cargar lotes";
+      renderBatchHistory([]);
+      return;
+    }
+    renderBatchHistory(data.batches || []);
+    batchHistoryMsg.textContent = `${(data.batches || []).length} lote(s) encontrados.`;
+  }
+
+  function closeBatchHistoryModal() {
+    if (!batchHistoryModal) {
+      return;
+    }
+    batchHistoryModal.classList.add("hidden");
+    batchHistoryModal.setAttribute("aria-hidden", "true");
+  }
+
+  async function openBatchHistoryModal() {
+    if (!batchHistoryModal) {
+      return;
+    }
+    batchHistoryModal.classList.remove("hidden");
+    batchHistoryModal.setAttribute("aria-hidden", "false");
+    if (batchHistorySearchInput) {
+      batchHistorySearchInput.value = "";
+      window.setTimeout(() => batchHistorySearchInput.focus(), 40);
+    }
+    await loadBatchHistory("");
+  }
+
   flavorName.addEventListener("change", syncPrefixFromFlavor);
   startNumberAdminPin.addEventListener("input", () => {
     if (!startNumberAdminPin.value.trim() && startNumberUnlocked) {
@@ -72,6 +161,41 @@
   });
   syncPrefixFromFlavor();
   setStartNumberMode(false);
+
+  if (showBatchHistoryBtn) {
+    showBatchHistoryBtn.addEventListener("click", async () => {
+      await openBatchHistoryModal();
+    });
+  }
+  if (closeBatchHistoryModalBtn) {
+    closeBatchHistoryModalBtn.addEventListener("click", closeBatchHistoryModal);
+  }
+  if (closeBatchHistoryFooterBtn) {
+    closeBatchHistoryFooterBtn.addEventListener("click", closeBatchHistoryModal);
+  }
+  if (batchHistoryModal) {
+    batchHistoryModal.addEventListener("click", (event) => {
+      if (event.target.dataset.closeBatchHistoryModal === "1") {
+        closeBatchHistoryModal();
+      }
+    });
+  }
+  if (batchHistorySearchInput) {
+    batchHistorySearchInput.addEventListener("input", () => {
+      batchHistorySearchInput.value = batchHistorySearchInput.value.toUpperCase();
+      if (batchHistorySearchTimer) {
+        clearTimeout(batchHistorySearchTimer);
+      }
+      batchHistorySearchTimer = window.setTimeout(() => {
+        loadBatchHistory(batchHistorySearchInput.value);
+      }, 180);
+    });
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && batchHistoryModal && !batchHistoryModal.classList.contains("hidden")) {
+      closeBatchHistoryModal();
+    }
+  });
 
   generateBtn.addEventListener("click", async () => {
     batchMsg.textContent = "Generando...";
