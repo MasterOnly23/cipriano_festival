@@ -12,6 +12,9 @@
     <article class="kpi-cancel"><h2>Cancelada</h2><p id="kpi-cancelada">0</p></article>
     <article class="kpi-loss"><h2>Merma</h2><p id="kpi-merma">0</p></article>
     <article class="kpi-revenue"><h2>Facturacion</h2><p id="kpi-revenue">$0</p></article>
+    <article class="kpi-ready"><h2>Ventas principal</h2><p id="kpi-main-sales">0</p></article>
+    <article class="kpi-sold"><h2>Ventas secundario</h2><p id="kpi-secondary-sales">0</p></article>
+    <article class="kpi-loss"><h2>Transferidas</h2><p id="kpi-transferred">$0</p></article>
   </div>
 
   <h2>Ultimos movimientos</h2>
@@ -24,6 +27,7 @@
         <option value="SALES">SALES</option>
         <option value="ADMIN">ADMIN</option>
         <option value="UNDO">UNDO</option>
+        <option value="TRANSFER">TRANSFER</option>
       </select>
     </label>
     <label>
@@ -53,13 +57,17 @@
       Sabor (venta)
       <select id="filterFlavor">
         <option value="">Todos</option>
-        {% if current_branding == "BURGERS" %}
-        <option value="HAMBURGUESA CLASICA">HAMBURGUESA CLASICA</option>
-        {% else %}
-        <option value="DIAVOLA">DIAVOLA</option>
-        <option value="DIAVOLA A MI MANERA">DIAVOLA A MI MANERA</option>
-        <option value="JAMON Y QUESO">JAMON Y QUESO</option>
-        {% endif %}
+        {% for flavor in flavors %}
+        <option value="{{ flavor.name }}">{{ flavor.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Local
+      <select id="filterLocation">
+        <option value="">Todos</option>
+        <option value="MAIN">Principal</option>
+        <option value="SECONDARY">Secundario</option>
       </select>
     </label>
     <label>
@@ -80,6 +88,7 @@
           <th>ID</th>
           <th>Modo</th>
           <th>Transicion</th>
+          <th>Local</th>
           <th>Operador</th>
           <th>Mesero</th>
         </tr>

@@ -29,6 +29,12 @@ class BrandingType(models.TextChoices):
     BOTH = "BOTH", "Both"
 
 
+class LocationType(models.TextChoices):
+    MAIN = "MAIN", "Principal"
+    SECONDARY = "SECONDARY", "Secundario"
+    BOTH = "BOTH", "Ambos"
+
+
 class Operator(models.Model):
     username = models.CharField(max_length=40, unique=True)
     pin_hash = models.CharField(max_length=128)
@@ -37,6 +43,12 @@ class Operator(models.Model):
         max_length=12,
         choices=BrandingType.choices,
         default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
+    location = models.CharField(
+        max_length=12,
+        choices=LocationType.choices,
+        default=LocationType.MAIN,
         db_index=True,
     )
     is_active = models.BooleanField(default=True)
@@ -94,6 +106,31 @@ class Waiter(models.Model):
         return f"{self.name} ({self.code})"
 
 
+class Flavor(models.Model):
+    branding = models.CharField(
+        max_length=10,
+        choices=[(BrandingType.FESTIVAL, "Festival"), (BrandingType.BURGERS, "Burgers")],
+        default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
+    name = models.CharField(max_length=60)
+    prefix = models.CharField(max_length=10)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_by = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["branding", "name"], name="uniq_flavor_branding_name"),
+            models.UniqueConstraint(fields=["branding", "prefix"], name="uniq_flavor_branding_prefix"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.branding}: {self.name} ({self.prefix})"
+
+
 class PizzaItem(models.Model):
     id = models.CharField(primary_key=True, max_length=32)
     branding = models.CharField(
@@ -105,6 +142,19 @@ class PizzaItem(models.Model):
     flavor = models.CharField(max_length=40, blank=True)
     size = models.CharField(max_length=20, blank=True)
     price = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    current_location = models.CharField(
+        max_length=12,
+        choices=[(LocationType.MAIN, "Principal"), (LocationType.SECONDARY, "Secundario")],
+        default=LocationType.MAIN,
+        db_index=True,
+    )
+    sold_location = models.CharField(
+        max_length=12,
+        choices=[(LocationType.MAIN, "Principal"), (LocationType.SECONDARY, "Secundario")],
+        blank=True,
+        default="",
+        db_index=True,
+    )
     status = models.CharField(
         max_length=16,
         choices=PizzaStatus.choices,
@@ -139,6 +189,18 @@ class ScanEvent(models.Model):
     mode = models.CharField(max_length=20)
     actor_name = models.CharField(max_length=80, blank=True)
     actor_role = models.CharField(max_length=16, choices=RoleType.choices)
+    from_location = models.CharField(
+        max_length=12,
+        choices=[(LocationType.MAIN, "Principal"), (LocationType.SECONDARY, "Secundario")],
+        blank=True,
+        default="",
+    )
+    to_location = models.CharField(
+        max_length=12,
+        choices=[(LocationType.MAIN, "Principal"), (LocationType.SECONDARY, "Secundario")],
+        blank=True,
+        default="",
+    )
     from_status = models.CharField(max_length=16, choices=PizzaStatus.choices)
     to_status = models.CharField(max_length=16, choices=PizzaStatus.choices)
     waiter_code = models.CharField(max_length=24, blank=True)
@@ -152,3 +214,34 @@ class ScanEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.pizza_id}: {self.from_status}->{self.to_status}"
+
+
+class TransferRecord(models.Model):
+    branding = models.CharField(
+        max_length=10,
+        choices=[(BrandingType.FESTIVAL, "Festival"), (BrandingType.BURGERS, "Burgers")],
+        default=BrandingType.FESTIVAL,
+        db_index=True,
+    )
+    from_location = models.CharField(
+        max_length=12,
+        choices=[(LocationType.MAIN, "Principal"), (LocationType.SECONDARY, "Secundario")],
+        default=LocationType.MAIN,
+    )
+    to_location = models.CharField(
+        max_length=12,
+        choices=[(LocationType.MAIN, "Principal"), (LocationType.SECONDARY, "Secundario")],
+        default=LocationType.SECONDARY,
+    )
+    first_id = models.CharField(max_length=32)
+    last_id = models.CharField(max_length=32)
+    quantity = models.PositiveIntegerField()
+    created_by = models.CharField(max_length=80, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.branding}: {self.first_id} -> {self.last_id} ({self.quantity})"

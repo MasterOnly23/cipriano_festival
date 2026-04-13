@@ -12,6 +12,7 @@
   const filterDateFrom = document.getElementById("filterDateFrom");
   const filterDateTo = document.getElementById("filterDateTo");
   const filterFlavor = document.getElementById("filterFlavor");
+  const filterLocation = document.getElementById("filterLocation");
   const filterWaiter = document.getElementById("filterWaiter");
   const applyFiltersBtn = document.getElementById("applyFiltersBtn");
   const clearFiltersBtn = document.getElementById("clearFiltersBtn");
@@ -27,6 +28,7 @@
     date_from: "",
     date_to: "",
     flavor: "",
+    location: "",
     waiter_name: "",
   };
 
@@ -41,19 +43,22 @@
     eventsBody.innerHTML = "";
     if (!events || events.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="6">Sin movimientos para estos filtros.</td>`;
+      tr.innerHTML = `<td colspan="7">Sin movimientos para estos filtros.</td>`;
       eventsBody.appendChild(tr);
       return;
     }
     for (const ev of events) {
       const modeClass = (ev.mode || "").toLowerCase();
       const toStatusClass = (ev.to_status || "").toLowerCase();
+      const summaryCount = Number(ev.summary_count || 1);
       const tr = document.createElement("tr");
+      const locationLabel = ev.to_location === "SECONDARY" ? "Secundario" : (ev.to_location === "MAIN" ? "Principal" : "-");
       tr.innerHTML = `
         <td data-label="Hora">${new Date(ev.created_at).toLocaleTimeString()}</td>
         <td data-label="ID">${ev.pizza_id}</td>
         <td data-label="Modo"><span class="mode-badge mode-${modeClass}">${ev.mode}</span></td>
-        <td data-label="Transicion">${ev.from_status} -> <span class="status-pill status-${toStatusClass}">${ev.to_status}</span></td>
+        <td data-label="Transicion">${ev.from_status} -> <span class="status-pill status-${toStatusClass}">${ev.to_status}</span>${summaryCount > 1 ? ` <strong>x${summaryCount}</strong>` : ""}</td>
+        <td data-label="Local">${locationLabel}</td>
         <td data-label="Operador">${ev.actor_name || "-"}</td>
         <td data-label="Mesero">${ev.waiter_name || "-"}</td>
       `;
@@ -95,6 +100,9 @@
     if (filters.flavor) {
       params.set("flavor", filters.flavor);
     }
+    if (filters.location) {
+      params.set("location", filters.location);
+    }
     if (filters.waiter_name) {
       params.set("waiter_name", filters.waiter_name);
     }
@@ -108,6 +116,7 @@
     filters.date_from = filterDateFrom.value.trim();
     filters.date_to = filterDateTo.value.trim();
     filters.flavor = filterFlavor.value.trim().toUpperCase();
+    filters.location = filterLocation.value.trim().toUpperCase();
     filters.waiter_name = filterWaiter.value.trim().toUpperCase();
   }
 
@@ -125,6 +134,9 @@
     setCount("kpi-merma", c.MERMA);
     const revenue = Number(data.revenue_sold || 0);
     setCount("kpi-revenue", `$${revenue.toLocaleString("es-AR")}`);
+    setCount("kpi-main-sales", data.sold_by_location?.MAIN ?? 0);
+    setCount("kpi-secondary-sales", data.sold_by_location?.SECONDARY ?? 0);
+    setCount("kpi-transferred", data.transferred_to_secondary ?? 0);
     renderEvents(data.latest);
     latestPagination = data.pagination || null;
     if (latestPagination && currentPage !== latestPagination.page) {
@@ -183,6 +195,7 @@
     filterDateFrom.value = "";
     filterDateTo.value = "";
     filterFlavor.value = "";
+    filterLocation.value = "";
     filterWaiter.value = "";
     syncFiltersFromInputs();
     currentPage = 1;
@@ -216,6 +229,9 @@
     }
     if (filters.flavor) {
       params.set("flavor", filters.flavor);
+    }
+    if (filters.location) {
+      params.set("location", filters.location);
     }
     if (filters.waiter_name) {
       params.set("waiter_name", filters.waiter_name);

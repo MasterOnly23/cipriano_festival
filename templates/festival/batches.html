@@ -2,7 +2,12 @@
 {% block title %}Lotes - zentraStock{% endblock %}
 {% block content %}
 <section class="panel">
-  <h1>Generar lote del dia</h1>
+  <div class="section-head">
+    <div>
+      <h1>Generar lote del dia</h1>
+    </div>
+    <button id="showBatchHistoryBtn" type="button" class="btn btn-alt btn-inline">Ver lotes creados</button>
+  </div>
   <div class="grid three">
     <label>
       Dia codigo
@@ -18,14 +23,10 @@
     <label>
       Sabor
       <select id="flavorName">
-        {% if current_branding == "BURGERS" %}
-        <option value="HAMBURGUESA CLASICA" selected>HAMBURGUESA CLASICA</option>
-        {% else %}
         <option value="" selected>Seleccionar sabor</option>
-        <option value="DIAVOLA">DIAVOLA</option>
-        <option value="DIAVOLA A MI MANERA">DIAVOLA A MI MANERA</option>
-        <option value="JAMON Y QUESO">JAMON Y QUESO</option>
-        {% endif %}
+        {% for flavor in flavors %}
+        <option value="{{ flavor.name }}" data-prefix="{{ flavor.prefix }}">{{ flavor.name }}</option>
+        {% endfor %}
       </select>
     </label>
     <label>Cantidad<input id="quantity" type="number" min="1" value="100"></label>
@@ -55,9 +56,31 @@
   <p><a id="pdfLink" href="#" target="_blank" class="hidden">Descargar etiquetas PDF</a></p>
 </section>
 
+<div id="batchHistoryModal" class="modal-shell hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close-batch-history-modal="1"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="batchHistoryTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="batchHistoryTitle">Lotes creados</h3>
+        <p class="muted modal-subtitle">Busca por codigo, notas u operador.</p>
+      </div>
+      <button id="closeBatchHistoryModalBtn" type="button" class="modal-close" aria-label="Cerrar">×</button>
+    </div>
+    <label>
+      Filtrar
+      <input id="batchHistorySearchInput" type="text" placeholder="Ej: D1-JYQ o operador de lote" autocapitalize="characters" spellcheck="false">
+    </label>
+    <p id="batchHistoryMsg" class="muted"></p>
+    <div id="batchHistoryList" class="history-list"></div>
+    <div class="modal-actions">
+      <button id="closeBatchHistoryFooterBtn" type="button" class="btn btn-alt">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <section class="panel">
   <h2>Meseros (QR)</h2>
-  <p class="muted">Crea un mesero y descarga su QR unico para el doble escaneo en ventas.</p>
+  <p class="muted">Crea un mesero y descarga su QR unico. El codigo del mesero sera corto, de 4 digitos, para escribirlo rapido si hace falta.</p>
   <div class="grid three">
     <label>
       Nombre mesero

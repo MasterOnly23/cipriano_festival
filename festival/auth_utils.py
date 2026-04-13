@@ -4,7 +4,7 @@ from typing import Iterable
 from django.conf import settings
 from django.shortcuts import redirect
 
-from .models import BrandingType, Operator, OperatorRole
+from .models import BrandingType, Flavor, LocationType, Operator, OperatorRole
 
 
 ROLE_LABEL_MAP = {
@@ -17,18 +17,68 @@ ROLE_LABEL_MAP = {
 
 def bootstrap_default_operators() -> None:
     defaults = [
-        ("cocina", OperatorRole.KITCHEN, settings.DEFAULT_FESTIVAL_KITCHEN_PIN, BrandingType.FESTIVAL),
-        ("ventas", OperatorRole.SALES, settings.DEFAULT_FESTIVAL_SALES_PIN, BrandingType.FESTIVAL),
-        ("lotes", OperatorRole.BATCHES, settings.DEFAULT_FESTIVAL_BATCHES_PIN, BrandingType.FESTIVAL),
-        ("cocinaburger", OperatorRole.KITCHEN, settings.DEFAULT_BURGERS_KITCHEN_PIN, BrandingType.BURGERS),
-        ("ventasburger", OperatorRole.SALES, settings.DEFAULT_BURGERS_SALES_PIN, BrandingType.BURGERS),
-        ("lotesburger", OperatorRole.BATCHES, settings.DEFAULT_BURGERS_BATCHES_PIN, BrandingType.BURGERS),
-        ("admin", OperatorRole.ADMIN, settings.DEFAULT_ADMIN_LOGIN_PIN, BrandingType.BOTH),
+        (
+            "cocina",
+            OperatorRole.KITCHEN,
+            settings.DEFAULT_FESTIVAL_KITCHEN_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.MAIN,
+        ),
+        (
+            "ventas",
+            OperatorRole.SALES,
+            settings.DEFAULT_FESTIVAL_SALES_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.MAIN,
+        ),
+        (
+            "ventassec",
+            OperatorRole.SALES,
+            settings.DEFAULT_FESTIVAL_SECONDARY_SALES_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.SECONDARY,
+        ),
+        (
+            "lotes",
+            OperatorRole.BATCHES,
+            settings.DEFAULT_FESTIVAL_BATCHES_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.MAIN,
+        ),
+        (
+            "cocinaburger",
+            OperatorRole.KITCHEN,
+            settings.DEFAULT_BURGERS_KITCHEN_PIN,
+            BrandingType.BURGERS,
+            LocationType.MAIN,
+        ),
+        (
+            "ventasburger",
+            OperatorRole.SALES,
+            settings.DEFAULT_BURGERS_SALES_PIN,
+            BrandingType.BURGERS,
+            LocationType.MAIN,
+        ),
+        (
+            "ventasburgersec",
+            OperatorRole.SALES,
+            settings.DEFAULT_BURGERS_SECONDARY_SALES_PIN,
+            BrandingType.BURGERS,
+            LocationType.SECONDARY,
+        ),
+        (
+            "lotesburger",
+            OperatorRole.BATCHES,
+            settings.DEFAULT_BURGERS_BATCHES_PIN,
+            BrandingType.BURGERS,
+            LocationType.MAIN,
+        ),
+        ("admin", OperatorRole.ADMIN, settings.DEFAULT_ADMIN_LOGIN_PIN, BrandingType.BOTH, LocationType.BOTH),
     ]
-    for username, role, pin, branding in defaults:
+    for username, role, pin, branding, location in defaults:
         op, created = Operator.objects.get_or_create(
             username=username,
-            defaults={"role": role, "branding": branding, "is_active": True},
+            defaults={"role": role, "branding": branding, "location": location, "is_active": True},
         )
         updated_fields = []
         if op.role != role:
@@ -37,6 +87,9 @@ def bootstrap_default_operators() -> None:
         if op.branding != branding:
             op.branding = branding
             updated_fields.append("branding")
+        if op.location != location:
+            op.location = location
+            updated_fields.append("location")
         if not op.is_active:
             op.is_active = True
             updated_fields.append("is_active")
@@ -45,6 +98,34 @@ def bootstrap_default_operators() -> None:
             updated_fields.append("pin_hash")
         if updated_fields:
             op.save(update_fields=updated_fields)
+    bootstrap_default_flavors()
+
+
+def bootstrap_default_flavors() -> None:
+    defaults = [
+        (BrandingType.FESTIVAL, "DIAVOLA", "DIA", 10),
+        (BrandingType.FESTIVAL, "DIAVOLA A MI MANERA", "DAM", 20),
+        (BrandingType.FESTIVAL, "JAMON Y QUESO", "JYQ", 30),
+        (BrandingType.BURGERS, "HAMBURGUESA CLASICA", "BUR", 10),
+    ]
+    for branding, name, prefix, sort_order in defaults:
+        flavor, created = Flavor.objects.get_or_create(
+            branding=branding,
+            name=name,
+            defaults={"prefix": prefix, "is_active": True, "sort_order": sort_order},
+        )
+        updates = []
+        if flavor.prefix != prefix:
+            flavor.prefix = prefix
+            updates.append("prefix")
+        if not flavor.is_active:
+            flavor.is_active = True
+            updates.append("is_active")
+        if flavor.sort_order != sort_order:
+            flavor.sort_order = sort_order
+            updates.append("sort_order")
+        if updates:
+            flavor.save(update_fields=updates)
 
 
 def get_current_operator(request):
@@ -62,6 +143,7 @@ def login_operator(request, operator: Operator) -> None:
     request.session["operator_username"] = operator.username
     request.session["operator_role"] = operator.role
     request.session["operator_branding"] = operator.branding
+    request.session["operator_location"] = operator.location
     if operator.branding in {BrandingType.FESTIVAL, BrandingType.BURGERS}:
         request.session["active_branding"] = operator.branding
     else:

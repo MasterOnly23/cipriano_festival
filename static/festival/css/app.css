@@ -182,6 +182,21 @@ h2 {
   box-shadow: var(--shadow);
 }
 
+.section-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.subpanel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #ead8b7;
+}
+
 .station-panel {
   border-left: 8px solid var(--brand);
 }
@@ -389,8 +404,34 @@ th {
   background: #cfdce5;
 }
 
+.btn-danger {
+  background: #b42318;
+}
+
+.btn-danger:hover {
+  background: #8f1d14;
+}
+
+.btn-warn {
+  background: #b45309;
+}
+
+.btn-warn:hover {
+  background: #92400e;
+}
+
+.btn-small {
+  margin-top: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
 .btn-wide {
   width: 100%;
+}
+
+.btn-inline {
+  margin-top: 0;
 }
 
 .muted {
@@ -462,6 +503,256 @@ th {
   gap: 10px;
   padding-top: 22px;
   flex-wrap: wrap;
+}
+
+.flavor-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+  position: relative;
+}
+
+.action-stack {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.row-action-menu {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.row-action-trigger {
+  margin-top: 0;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d8c09a;
+  border-radius: 10px;
+  background: #fff8ea;
+  cursor: pointer;
+}
+
+.row-action-trigger:hover {
+  background: #f7ecd7;
+  border-color: #caa06f;
+}
+
+.row-action-trigger-icon,
+.row-action-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.row-action-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 172px;
+  padding: 6px;
+  border: 1px solid #d8c09a;
+  border-radius: 12px;
+  background: #fffdf7;
+  box-shadow: 0 14px 30px rgba(27, 50, 64, 0.14);
+  display: grid;
+  gap: 4px;
+  z-index: 20;
+}
+
+.row-action-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.row-action-item:hover {
+  background: #f4ead8;
+}
+
+.row-action-item-warn {
+  color: #92400e;
+}
+
+.flavor-footer-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: end;
+}
+
+.modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(100%, 560px);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.24);
+  padding: 18px;
+}
+
+.modal-card-sm {
+  width: min(100%, 440px);
+}
+
+.modal-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.modal-head h3 {
+  margin: 0 0 4px;
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  font-size: 28px;
+}
+
+.modal-subtitle {
+  margin: 0;
+}
+
+.modal-close {
+  border: 0;
+  background: transparent;
+  color: var(--brand-deep);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.modal-grid {
+  margin-top: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inactive-flavor-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.inactive-flavor-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e4d0ad;
+  border-radius: 12px;
+  background: #fff8ea;
+}
+
+.inactive-flavor-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.inactive-flavor-copy strong {
+  font-size: 17px;
+}
+
+.inactive-flavor-copy span {
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.inactive-empty {
+  padding: 14px;
+  border: 1px dashed #d6bf99;
+  border-radius: 12px;
+  background: #fff8ea;
+  color: var(--muted);
+}
+
+.history-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.history-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e4d0ad;
+  border-radius: 12px;
+  background: #fff8ea;
+}
+
+.history-card-main {
+  display: grid;
+  gap: 4px;
+}
+
+.history-card-main strong {
+  font-size: 18px;
+  color: var(--brand-deep);
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+}
+
+.history-card-main span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.history-notes {
+  color: var(--ink) !important;
+}
+
+.history-card-actions {
+  display: flex;
+  align-items: center;
+}
+
+.history-empty {
+  padding: 14px;
+  border: 1px dashed #d6bf99;
+  border-radius: 12px;
+  background: #fff8ea;
+  color: var(--muted);
 }
 
 .auth-panel {
@@ -625,6 +916,12 @@ th {
   border-color: #a5b4fc;
 }
 
+.mode-badge.mode-transfer {
+  color: #9a3412;
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
 button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -781,6 +1078,76 @@ button:disabled {
   .filter-actions .btn {
     flex: 1;
     min-width: 110px;
+  }
+
+  .modal-shell {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 18px 18px 0 0;
+    padding: 16px;
+  }
+
+  .modal-head h3 {
+    font-size: 24px;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+  }
+
+  .flavor-actions-cell {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .row-action-menu {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .row-action-trigger {
+    width: 100%;
+    justify-content: space-between;
+    padding: 0 12px;
+  }
+
+  .row-action-trigger::before {
+    content: "Acciones";
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .row-action-dropdown {
+    position: static;
+    margin-top: 8px;
+    width: 100%;
+    min-width: 0;
+    box-shadow: none;
+  }
+
+  .action-stack,
+  .inactive-flavor-card,
+  .history-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flavor-footer-actions .btn {
+    width: 100%;
+  }
+
+  .section-head .btn {
+    width: 100%;
+  }
+
+  .history-card-actions .btn {
+    width: 100%;
   }
 
   .branding-cards {
