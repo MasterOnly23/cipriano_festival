@@ -43,8 +43,19 @@
   let pendingTimerId = null;
   const pendingTimeoutMs = 45000;
 
+  function normalizeScannedCode(value) {
+    let raw = (value || "").trim().toUpperCase();
+    for (const badSep of ["'", "’", "`", "´", "‘"]) {
+      raw = raw.split(badSep).join("-");
+    }
+    while (raw.includes("--")) {
+      raw = raw.replaceAll("--", "-");
+    }
+    return raw;
+  }
+
   function findWaiterByCode(code) {
-    return waitersByCode[(code || "").trim().toUpperCase()] || null;
+    return waitersByCode[normalizeScannedCode(code)] || null;
   }
 
   function isEditableElement(element) {
@@ -177,7 +188,7 @@
       }
       const indexed = {};
       for (const waiter of data.waiters) {
-        indexed[(waiter.code || "").toUpperCase()] = waiter;
+        indexed[normalizeScannedCode(waiter.code)] = waiter;
       }
       waitersByCode = indexed;
     } catch (err) {
@@ -187,7 +198,7 @@
 
   async function sendScan(code) {
     const payload = {
-      id: code.trim().toUpperCase(),
+      id: normalizeScannedCode(code),
       mode: mode,
       actor_name: currentOperator,
       override_pin: pinInput ? pinInput.value.trim() : "",
@@ -209,7 +220,7 @@
     if (!code) {
       return;
     }
-    const normalized = code.trim().toUpperCase();
+    const normalized = normalizeScannedCode(code);
     input.value = normalized;
     const matchedWaiter = mode === "SALES" ? findWaiterByCode(normalized) : null;
     if (matchedWaiter) {
@@ -420,7 +431,7 @@
     await processCode(code);
   });
   input.addEventListener("input", () => {
-    input.value = input.value.toUpperCase();
+    input.value = normalizeScannedCode(input.value);
   });
 
   openCameraBtn.addEventListener("click", async () => {
@@ -447,18 +458,18 @@
   }
   if (bulkStartId) {
     bulkStartId.addEventListener("input", () => {
-      bulkStartId.value = bulkStartId.value.toUpperCase();
+      bulkStartId.value = normalizeScannedCode(bulkStartId.value);
     });
   }
   if (bulkEndId) {
     bulkEndId.addEventListener("input", () => {
-      bulkEndId.value = bulkEndId.value.toUpperCase();
+      bulkEndId.value = normalizeScannedCode(bulkEndId.value);
     });
   }
   if (bulkReadyBtn && bulkStartId && bulkEndId && bulkMsg) {
     bulkReadyBtn.addEventListener("click", async () => {
-      const startId = bulkStartId.value.trim().toUpperCase();
-      const endId = bulkEndId.value.trim().toUpperCase();
+      const startId = normalizeScannedCode(bulkStartId.value);
+      const endId = normalizeScannedCode(bulkEndId.value);
       if (!startId || !endId) {
         bulkMsg.textContent = "Ingresa ID inicial y final.";
         return;

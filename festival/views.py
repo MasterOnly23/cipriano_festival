@@ -58,14 +58,14 @@ BRANDING_META = {
         "display_name": "Cipriano Festival",
         "subtitle": "Operacion de pizzas",
         "login_path": "/festival/login/",
-        "users_hint": "cocina | ventas | ventassec | lotes | admin",
+        "users_hint": "ciprianocajalocal | ciprianooperador | ciprianosocio",
     },
     BrandingType.BURGERS: {
         "slug": "don",
         "display_name": "DON",
         "subtitle": "Operacion de hamburguesas",
         "login_path": "/don/login/",
-        "users_hint": "cocinaburger | ventasburger | ventasburgersec | lotesburger | admin",
+        "users_hint": "doncajalocal | donoperador | donsocio",
     },
 }
 
@@ -230,6 +230,15 @@ def _parse_iso_date(value: str, field_name: str) -> tuple[date | None, str | Non
         return None, f"{field_name} invalida. Formato esperado: YYYY-MM-DD"
 
 
+def _normalize_scanned_code(value: str) -> str:
+    raw = (value or "").strip().upper()
+    for bad_sep in ("'", "’", "`", "´", "‘"):
+        raw = raw.replace(bad_sep, "-")
+    while "--" in raw:
+        raw = raw.replace("--", "-")
+    return raw
+
+
 def login_view(request, forced_branding: str | None = None):
     bootstrap_default_operators()
     if not forced_branding:
@@ -310,15 +319,17 @@ def home_view(request):
         return redirect("/sales/")
     if operator.role == "BATCHES":
         return redirect("/batches/")
+    if operator.role in {"OPERATOR", "SOCIO"}:
+        return redirect("/dashboard/")
     return redirect("/dashboard/")
 
 
-@require_roles_web(["KITCHEN", "SALES", "BATCHES", "ADMIN"])
+@require_roles_web(["KITCHEN", "SALES", "BATCHES", "OPERATOR", "SOCIO", "ADMIN"])
 def branding_select_view(request):
     return redirect("/")
 
 
-@require_roles_web(["KITCHEN", "ADMIN"])
+@require_roles_web(["KITCHEN", "OPERATOR", "ADMIN"])
 def kitchen_view(request):
     return render(
         request,
@@ -333,7 +344,7 @@ def kitchen_view(request):
     )
 
 
-@require_roles_web(["SALES", "ADMIN"])
+@require_roles_web(["SALES", "OPERATOR", "ADMIN"])
 def sales_view(request):
     return render(
         request,
@@ -348,7 +359,7 @@ def sales_view(request):
     )
 
 
-@require_roles_web(["SALES", "ADMIN"])
+@require_roles_web(["SALES", "OPERATOR", "SOCIO", "ADMIN"])
 def dashboard_view(request):
     return render(
         request,
@@ -361,7 +372,7 @@ def dashboard_view(request):
     )
 
 
-@require_roles_web(["BATCHES", "ADMIN"])
+@require_roles_web(["BATCHES", "OPERATOR", "ADMIN"])
 def batches_view(request):
     return render(
         request,
@@ -390,7 +401,7 @@ def admin_ops_view(request):
 
 class FlavorAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "SALES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "SALES", "OPERATOR", "SOCIO", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -484,16 +495,16 @@ class FlavorReactivateAPIView(APIView):
 
 class ScanAPIView(APIView):
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["KITCHEN", "SALES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["KITCHEN", "SALES", "OPERATOR", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
 
-        pizza_id = (request.data.get("id") or "").strip().upper()
+        pizza_id = _normalize_scanned_code(request.data.get("id"))
         mode = (request.data.get("mode") or "").strip().upper()
         flavor_if_empty = (request.data.get("flavor_if_empty") or "").strip().upper()
         override_pin = (request.data.get("override_pin") or "").strip()
-        waiter_code = (request.data.get("waiter_code") or "").strip().upper()
+        waiter_code = _normalize_scanned_code(request.data.get("waiter_code"))
 
         if not pizza_id:
             return Response({"ok": False, "error": "ID requerido"}, status=status.HTTP_400_BAD_REQUEST)
@@ -501,6 +512,8 @@ class ScanAPIView(APIView):
         if operator.role == "KITCHEN" and mode != "KITCHEN":
             return Response({"ok": False, "error": "Modo no permitido para este usuario"}, status=403)
         if operator.role == "SALES" and mode != "SALES":
+            return Response({"ok": False, "error": "Modo no permitido para este usuario"}, status=403)
+        if operator.role == "OPERATOR" and mode not in {"KITCHEN", "SALES"}:
             return Response({"ok": False, "error": "Modo no permitido para este usuario"}, status=403)
         if operator.role == "ADMIN" and mode not in {"KITCHEN", "SALES"}:
             return Response({"ok": False, "error": "Modo invalido"}, status=400)
@@ -534,12 +547,12 @@ class ScanAPIView(APIView):
 
 class KitchenBulkReadyAPIView(APIView):
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["KITCHEN", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["KITCHEN", "OPERATOR", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
-        start_id = (request.data.get("start_id") or "").strip().upper()
-        end_id = (request.data.get("end_id") or "").strip().upper()
+        start_id = _normalize_scanned_code(request.data.get("start_id"))
+        end_id = _normalize_scanned_code(request.data.get("end_id"))
         try:
             count, first_id, last_id = bulk_mark_ready(
                 start_id=start_id,
@@ -566,7 +579,7 @@ class KitchenBulkReadyAPIView(APIView):
 
 class WaiterAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN", "SALES"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN", "SALES", "OPERATOR"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -574,7 +587,7 @@ class WaiterAPIView(APIView):
         return Response({"ok": True, "waiters": WaiterSerializer(waiters, many=True).data})
 
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -596,12 +609,12 @@ class WaiterAPIView(APIView):
 
 class WaiterLabelsAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN", "SALES"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
 
-        codes_raw = (request.GET.get("codes") or "").strip().upper()
+        codes_raw = _normalize_scanned_code(request.GET.get("codes"))
         if not codes_raw:
             return Response({"ok": False, "error": "codes requerido"}, status=status.HTTP_400_BAD_REQUEST)
         codes = [code.strip() for code in codes_raw.split(",") if code.strip()]
@@ -619,7 +632,7 @@ class WaiterLabelsAPIView(APIView):
 
 class BatchGenerateAPIView(APIView):
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -715,7 +728,7 @@ class BatchGenerateAPIView(APIView):
 
 class BatchListAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -738,14 +751,14 @@ class BatchListAPIView(APIView):
 
 class BatchLabelsAPIView(APIView):
     def get(self, request, batch_code: str):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
 
         queryset = PizzaItem.objects.filter(batch__code=batch_code, branding=active_branding).order_by("id")
-        from_id = (request.GET.get("from_id") or "").strip().upper()
-        to_id = (request.GET.get("to_id") or "").strip().upper()
+        from_id = _normalize_scanned_code(request.GET.get("from_id"))
+        to_id = _normalize_scanned_code(request.GET.get("to_id"))
         if from_id:
             queryset = queryset.filter(id__gte=from_id)
         if to_id:
@@ -761,7 +774,7 @@ class BatchLabelsAPIView(APIView):
 
 class DashboardDataAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["SALES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["SALES", "OPERATOR", "SOCIO", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -777,7 +790,7 @@ class DashboardDataAPIView(APIView):
         page_size = min(30, max(5, page_size))
         mode = (request.GET.get("mode") or "").strip().upper()
         to_status = (request.GET.get("to_status") or "").strip().upper()
-        pizza_id = (request.GET.get("pizza_id") or "").strip().upper()
+        pizza_id = _normalize_scanned_code(request.GET.get("pizza_id"))
         flavor = (request.GET.get("flavor") or "").strip().upper()
         waiter_name = (request.GET.get("waiter_name") or "").strip().upper()
         location = (request.GET.get("location") or "").strip().upper()
@@ -909,7 +922,7 @@ class DashboardDataAPIView(APIView):
 
 class SalesExportXLSAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["SALES", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["SALES", "OPERATOR", "SOCIO", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -1035,7 +1048,7 @@ class AdminStatusAPIView(APIView):
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
 
-        pizza_id = (request.data.get("id") or "").strip().upper()
+        pizza_id = _normalize_scanned_code(request.data.get("id"))
         to_status = (request.data.get("to_status") or "").strip().upper()
         pin = (request.data.get("pin") or "").strip()
         actor = Actor(name=operator.username, role=RoleType.ADMIN, location=operator.location)
@@ -1093,6 +1106,18 @@ class AdminVerifyPinAPIView(APIView):
         return Response({"ok": True, "message": "PIN valido"})
 
 
+class BatchAdminVerifyPinAPIView(APIView):
+    def post(self, request):
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+
+        pin = (request.data.get("pin") or "").strip()
+        if pin != settings.ADMIN_ACTIONS_PIN:
+            return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "message": "PIN valido"})
+
+
 class TransferToSecondaryAPIView(APIView):
     def post(self, request):
         operator, error, error_status = require_roles_api(request, ["ADMIN"])
@@ -1102,8 +1127,8 @@ class TransferToSecondaryAPIView(APIView):
         pin = (request.data.get("pin") or "").strip()
         if pin != settings.ADMIN_ACTIONS_PIN:
             return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
-        start_id = (request.data.get("start_id") or "").strip().upper()
-        end_id = (request.data.get("end_id") or "").strip().upper()
+        start_id = _normalize_scanned_code(request.data.get("start_id"))
+        end_id = _normalize_scanned_code(request.data.get("end_id"))
         note = (request.data.get("note") or "").strip()
         try:
             transfer, count = transfer_items_to_secondary(
@@ -1133,8 +1158,8 @@ class ReturnToMainAPIView(APIView):
         pin = (request.data.get("pin") or "").strip()
         if pin != settings.ADMIN_ACTIONS_PIN:
             return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
-        start_id = (request.data.get("start_id") or "").strip().upper()
-        end_id = (request.data.get("end_id") or "").strip().upper()
+        start_id = _normalize_scanned_code(request.data.get("start_id"))
+        end_id = _normalize_scanned_code(request.data.get("end_id"))
         note = (request.data.get("note") or "").strip()
         try:
             transfer, count = return_items_to_main(

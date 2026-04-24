@@ -39,6 +39,19 @@
   let startNumberUnlocked = false;
   let batchHistorySearchTimer = null;
 
+  async function verifyBatchAdminPin(pin) {
+    const res = await fetch("/api/batches/verify-admin-pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: (pin || "").trim() }),
+    });
+    const data = await res.json();
+    return {
+      ok: res.ok && !!data.ok,
+      error: data.error || "PIN admin invalido",
+    };
+  }
+
   function syncPrefixFromFlavor() {
     const selectedFlavor = flavorName.value.trim().toUpperCase();
     flavorPrefix.value = flavorToPrefix[selectedFlavor] || "";
@@ -142,13 +155,15 @@
 
   flavorName.addEventListener("change", syncPrefixFromFlavor);
   startNumberAdminPin.addEventListener("input", () => {
-    if (!startNumberAdminPin.value.trim() && startNumberUnlocked) {
-      setStartNumberMode(false);
-    }
-  });
-  unlockStartNumberBtn.addEventListener("click", () => {
     if (startNumberUnlocked) {
       setStartNumberMode(false);
+      batchMsg.textContent = "Nro inicial manual bloqueado hasta volver a validar PIN admin.";
+    }
+  });
+  unlockStartNumberBtn.addEventListener("click", async () => {
+    if (startNumberUnlocked) {
+      setStartNumberMode(false);
+      batchMsg.textContent = "";
       return;
     }
     const pin = startNumberAdminPin.value.trim();
@@ -156,8 +171,14 @@
       batchMsg.textContent = "Ingresa PIN admin para habilitar Nro inicial manual.";
       return;
     }
+    const pinCheck = await verifyBatchAdminPin(pin);
+    if (!pinCheck.ok) {
+      setStartNumberMode(false);
+      batchMsg.textContent = pinCheck.error;
+      return;
+    }
     setStartNumberMode(true);
-    batchMsg.textContent = "";
+    batchMsg.textContent = "PIN admin validado. Nro inicial manual habilitado.";
   });
   syncPrefixFromFlavor();
   setStartNumberMode(false);

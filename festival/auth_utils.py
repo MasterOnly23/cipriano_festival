@@ -10,12 +10,36 @@ from .models import BrandingType, Flavor, LocationType, Operator, OperatorRole
 ROLE_LABEL_MAP = {
     OperatorRole.KITCHEN: "COCINA",
     OperatorRole.SALES: "VENTAS",
-    OperatorRole.BATCHES: "ADMIN",
+    OperatorRole.BATCHES: "LOTES",
+    OperatorRole.OPERATOR: "OPERADOR",
+    OperatorRole.SOCIO: "SOCIO",
     OperatorRole.ADMIN: "ADMIN",
 }
 
 
 def bootstrap_default_operators() -> None:
+    username_renames = {
+        "cipriano_cajalocal": "ciprianocajalocal",
+        "cipriano_cajaoperacion": "ciprianocajaoperacion",
+        "cipriano_administrador": "ciprianoadministrador",
+        "cipriano_operador": "ciprianooperador",
+        "cipriano_socio": "ciprianosocio",
+        "don_cajalocal": "doncajalocal",
+        "don_cajaoperacion": "doncajaoperacion",
+        "don_administrador": "donadministrador",
+        "don_operador": "donoperador",
+        "don_socio": "donsocio",
+    }
+    for old_username, new_username in username_renames.items():
+        if Operator.objects.filter(username=new_username).exists():
+            continue
+        try:
+            op = Operator.objects.get(username=old_username)
+        except Operator.DoesNotExist:
+            continue
+        op.username = new_username
+        op.save(update_fields=["username"])
+
     defaults = [
         (
             "cocina",
@@ -39,11 +63,46 @@ def bootstrap_default_operators() -> None:
             LocationType.SECONDARY,
         ),
         (
+            "ciprianocajalocal",
+            OperatorRole.SALES,
+            settings.DEFAULT_CIPRIANO_CAJALOCAL_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.MAIN,
+        ),
+        (
+            "ciprianocajaoperacion",
+            OperatorRole.SALES,
+            settings.DEFAULT_CIPRIANO_CAJAOPERACION_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.SECONDARY,
+        ),
+        (
             "lotes",
             OperatorRole.BATCHES,
             settings.DEFAULT_FESTIVAL_BATCHES_PIN,
             BrandingType.FESTIVAL,
             LocationType.MAIN,
+        ),
+        (
+            "ciprianoadministrador",
+            OperatorRole.ADMIN,
+            settings.DEFAULT_CIPRIANO_ADMINISTRADOR_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.BOTH,
+        ),
+        (
+            "ciprianooperador",
+            OperatorRole.OPERATOR,
+            settings.DEFAULT_CIPRIANO_OPERADOR_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.BOTH,
+        ),
+        (
+            "ciprianosocio",
+            OperatorRole.SOCIO,
+            settings.DEFAULT_CIPRIANO_SOCIO_PIN,
+            BrandingType.FESTIVAL,
+            LocationType.BOTH,
         ),
         (
             "cocinaburger",
@@ -67,11 +126,46 @@ def bootstrap_default_operators() -> None:
             LocationType.SECONDARY,
         ),
         (
+            "doncajalocal",
+            OperatorRole.SALES,
+            settings.DEFAULT_DON_CAJALOCAL_PIN,
+            BrandingType.BURGERS,
+            LocationType.MAIN,
+        ),
+        (
+            "doncajaoperacion",
+            OperatorRole.SALES,
+            settings.DEFAULT_DON_CAJAOPERACION_PIN,
+            BrandingType.BURGERS,
+            LocationType.SECONDARY,
+        ),
+        (
             "lotesburger",
             OperatorRole.BATCHES,
             settings.DEFAULT_BURGERS_BATCHES_PIN,
             BrandingType.BURGERS,
             LocationType.MAIN,
+        ),
+        (
+            "donadministrador",
+            OperatorRole.ADMIN,
+            settings.DEFAULT_DON_ADMINISTRADOR_PIN,
+            BrandingType.BURGERS,
+            LocationType.BOTH,
+        ),
+        (
+            "donoperador",
+            OperatorRole.OPERATOR,
+            settings.DEFAULT_DON_OPERADOR_PIN,
+            BrandingType.BURGERS,
+            LocationType.BOTH,
+        ),
+        (
+            "donsocio",
+            OperatorRole.SOCIO,
+            settings.DEFAULT_DON_SOCIO_PIN,
+            BrandingType.BURGERS,
+            LocationType.BOTH,
         ),
         ("admin", OperatorRole.ADMIN, settings.DEFAULT_ADMIN_LOGIN_PIN, BrandingType.BOTH, LocationType.BOTH),
     ]
