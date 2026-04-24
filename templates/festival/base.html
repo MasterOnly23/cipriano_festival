@@ -30,14 +30,16 @@
     </a>
 
     <nav class="topbar-nav" aria-label="Navegacion principal">
-      {% if request.session.operator_role == "KITCHEN" or request.session.operator_role == "ADMIN" %}
+      {% if request.session.operator_role == "KITCHEN" or request.session.operator_role == "OPERATOR" or request.session.operator_role == "ADMIN" %}
       <a href="/kitchen/" {% if request.path == "/kitchen/" %}class="active"{% endif %}>Cocina</a>
       {% endif %}
-      {% if request.session.operator_role == "SALES" or request.session.operator_role == "ADMIN" %}
+      {% if request.session.operator_role == "SALES" or request.session.operator_role == "OPERATOR" or request.session.operator_role == "ADMIN" %}
       <a href="/sales/" {% if request.path == "/sales/" %}class="active"{% endif %}>Ventas</a>
+      {% endif %}
+      {% if request.session.operator_role == "SALES" or request.session.operator_role == "OPERATOR" or request.session.operator_role == "SOCIO" or request.session.operator_role == "ADMIN" %}
       <a href="/dashboard/" {% if request.path == "/dashboard/" %}class="active"{% endif %}>Dashboard</a>
       {% endif %}
-      {% if request.session.operator_role == "BATCHES" or request.session.operator_role == "ADMIN" %}
+      {% if request.session.operator_role == "BATCHES" or request.session.operator_role == "OPERATOR" or request.session.operator_role == "ADMIN" %}
       <a href="/batches/" {% if request.path == "/batches/" %}class="active"{% endif %}>Lotes</a>
       {% endif %}
       {% if request.session.operator_role == "ADMIN" %}

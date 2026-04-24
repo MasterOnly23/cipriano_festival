@@ -32,6 +32,7 @@ urlpatterns = [
     path("api/admin/status", views.AdminStatusAPIView.as_view(), name="api-admin-status"),
     path("api/admin/undo", views.UndoAPIView.as_view(), name="api-admin-undo"),
     path("api/admin/verify-pin", views.AdminVerifyPinAPIView.as_view(), name="api-admin-verify-pin"),
+    path("api/batches/verify-admin-pin", views.BatchAdminVerifyPinAPIView.as_view(), name="api-batches-verify-admin-pin"),
     path("api/admin/transfer-to-secondary", views.TransferToSecondaryAPIView.as_view(), name="api-admin-transfer"),
     path("api/admin/return-to-main", views.ReturnToMainAPIView.as_view(), name="api-admin-return"),
 ]

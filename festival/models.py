@@ -13,6 +13,7 @@ class PizzaStatus(models.TextChoices):
 class RoleType(models.TextChoices):
     COCINA = "COCINA", "Cocina"
     VENTAS = "VENTAS", "Ventas"
+    OPERADOR = "OPERADOR", "Operador"
     ADMIN = "ADMIN", "Admin"
 
 
@@ -20,6 +21,8 @@ class OperatorRole(models.TextChoices):
     KITCHEN = "KITCHEN", "Kitchen"
     SALES = "SALES", "Sales"
     BATCHES = "BATCHES", "Batches"
+    OPERATOR = "OPERATOR", "Operator"
+    SOCIO = "SOCIO", "Socio"
     ADMIN = "ADMIN", "Admin"
 
 
