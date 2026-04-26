@@ -82,9 +82,8 @@ def build_labels_pdf(items: Iterable[PizzaItem]) -> bytes:
 
         text_x = x + 33 * mm
         max_text_width = label_w - 36 * mm
-        flavor_text = f"Sabor: {item.flavor or '-'}"
         flavor_lines = _wrap_text(
-            flavor_text,
+            f"Sabor: {item.flavor or '-'}",
             font_name="Helvetica",
             font_size=10,
             max_width=max_text_width,
@@ -94,12 +93,10 @@ def build_labels_pdf(items: Iterable[PizzaItem]) -> bytes:
         c.setFont("Helvetica-Bold", 12)
         c.drawString(text_x, y + 25 * mm, item.id)
         c.setFont("Helvetica", 10)
-        flavor_y = y + 18 * mm
+        text_y = y + 18 * mm
         for line in flavor_lines:
-            c.drawString(text_x, flavor_y, line)
-            flavor_y -= 5 * mm
-
-        c.drawString(text_x, flavor_y - 1 * mm, f"Precio: ${item.price}")
+            c.drawString(text_x, text_y, line)
+            text_y -= 5 * mm
 
         count += 1
         x += label_w
