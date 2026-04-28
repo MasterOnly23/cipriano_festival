@@ -658,6 +658,8 @@ class BatchGenerateAPIView(APIView):
             price = Decimal(str(request.data.get("price", "0")))
         except (InvalidOperation, TypeError):
             return Response({"ok": False, "error": "price invalido"}, status=status.HTTP_400_BAD_REQUEST)
+        if price <= 0:
+            return Response({"ok": False, "error": "price debe ser mayor a 0"}, status=status.HTTP_400_BAD_REQUEST)
 
         start_raw = request.data.get("start_number")
         admin_actions_pin = (request.data.get("admin_actions_pin") or "").strip()
