@@ -241,13 +241,18 @@
       batchMsg.textContent = "Si habilitas Nro inicial manual, debes ingresar un numero.";
       return;
     }
+    const priceValue = Number(price.value);
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      batchMsg.textContent = "Precio invalido. Ingresa un valor mayor a 0.";
+      return;
+    }
 
     const payload = {
       day_code: `D${dayValue}`,
       flavor_prefix: flavorPrefix.value.trim().toUpperCase(),
       flavor: flavorName.value.trim().toUpperCase(),
       quantity: Number(quantity.value),
-      price: Number(price.value),
+      price: priceValue,
       size: size.value.trim().toUpperCase(),
       actor_name: actorName.value.trim(),
       notes: notes.value.trim(),
