@@ -317,7 +317,10 @@
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({
+        ok: false,
+        error: "Error del servidor al crear mesero",
+      }));
       if (!res.ok || !data.ok) {
         waiterMsg.textContent = data.error || "Error al crear mesero";
         return;

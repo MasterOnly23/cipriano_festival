@@ -277,7 +277,7 @@ def create_waiter(*, name: str, actor_name: str, branding: str = "FESTIVAL") -> 
         raise TransitionError("Nombre de mesero requerido")
 
     next_number = 1
-    for existing_code in Waiter.objects.filter(branding=branding).values_list("code", flat=True):
+    for existing_code in Waiter.objects.values_list("code", flat=True):
         raw_code = (existing_code or "").strip().upper()
         numeric_part = raw_code
         if raw_code.startswith("W-"):
