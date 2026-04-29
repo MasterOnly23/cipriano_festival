@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.core.paginator import Paginator, EmptyPage
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.html import escape
 from rest_framework import status
 from rest_framework.response import Response
@@ -436,6 +437,7 @@ def inventory_view(request):
 
 
 @require_roles_web(["BATCHES", "OPERATOR", "ADMIN"])
+@ensure_csrf_cookie
 def batches_view(request):
     return render(
         request,

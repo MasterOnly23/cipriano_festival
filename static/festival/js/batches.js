@@ -39,10 +39,30 @@
   let startNumberUnlocked = false;
   let batchHistorySearchTimer = null;
 
+  function getCookie(name) {
+    const cookies = document.cookie ? document.cookie.split(";") : [];
+    for (const cookie of cookies) {
+      const trimmed = cookie.trim();
+      if (trimmed.startsWith(`${name}=`)) {
+        return decodeURIComponent(trimmed.slice(name.length + 1));
+      }
+    }
+    return "";
+  }
+
+  function jsonHeaders() {
+    const headers = { "Content-Type": "application/json" };
+    const csrfToken = getCookie("csrftoken");
+    if (csrfToken) {
+      headers["X-CSRFToken"] = csrfToken;
+    }
+    return headers;
+  }
+
   async function verifyBatchAdminPin(pin) {
     const res = await fetch("/api/batches/verify-admin-pin", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders(),
       body: JSON.stringify({ pin: (pin || "").trim() }),
     });
     const data = await res.json();
@@ -262,7 +282,7 @@
 
     const res = await fetch("/api/batches/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -294,7 +314,7 @@
       };
       const res = await fetch("/api/waiters", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: jsonHeaders(),
         body: JSON.stringify(payload),
       });
       const data = await res.json();
