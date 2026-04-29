@@ -21,6 +21,7 @@
   </div>
 </section>
 
+{% if operator.role == "ADMIN" %}
 <section class="panel">
   <h2>Sabores</h2>
   <div class="grid three">
@@ -180,6 +181,7 @@
   </div>
   <p id="statusMsg" class="muted"></p>
 </section>
+{% endif %}
 
 <section class="panel">
   <h2>Movimientos entre locales</h2>
@@ -238,11 +240,16 @@
   </div>
 </section>
 
+{% if operator.role == "ADMIN" %}
 <section class="panel">
   <h2>Correcciones</h2>
   <button id="undoBtn" type="button" class="btn btn-alt">Deshacer ultimo evento</button>
   <p id="undoMsg" class="muted"></p>
 </section>
+{% endif %}
 
+<script>
+  window.ADMIN_OPS_ROLE = "{{ operator.role }}";
+</script>
 <script src="/static/festival/js/admin_ops.js"></script>
 {% endblock %}

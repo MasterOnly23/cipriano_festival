@@ -12,6 +12,7 @@ ROLE_LABEL_MAP = {
     OperatorRole.SALES: "VENTAS",
     OperatorRole.BATCHES: "LOTES",
     OperatorRole.OPERATOR: "OPERADOR",
+    OperatorRole.CASHIER_OPS: "CAJA OPERACION",
     OperatorRole.SOCIO: "SOCIO",
     OperatorRole.ADMIN: "ADMIN",
 }
@@ -67,14 +68,14 @@ def bootstrap_default_operators() -> None:
             OperatorRole.SALES,
             settings.DEFAULT_CIPRIANO_CAJALOCAL_PIN,
             BrandingType.FESTIVAL,
-            LocationType.MAIN,
+            LocationType.SECONDARY,
         ),
         (
             "ciprianocajaoperacion",
-            OperatorRole.SALES,
+            OperatorRole.CASHIER_OPS,
             settings.DEFAULT_CIPRIANO_CAJAOPERACION_PIN,
             BrandingType.FESTIVAL,
-            LocationType.SECONDARY,
+            LocationType.MAIN,
         ),
         (
             "lotes",
@@ -130,14 +131,14 @@ def bootstrap_default_operators() -> None:
             OperatorRole.SALES,
             settings.DEFAULT_DON_CAJALOCAL_PIN,
             BrandingType.BURGERS,
-            LocationType.MAIN,
+            LocationType.SECONDARY,
         ),
         (
             "doncajaoperacion",
-            OperatorRole.SALES,
+            OperatorRole.CASHIER_OPS,
             settings.DEFAULT_DON_CAJAOPERACION_PIN,
             BrandingType.BURGERS,
-            LocationType.SECONDARY,
+            LocationType.MAIN,
         ),
         (
             "lotesburger",

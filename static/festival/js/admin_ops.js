@@ -43,22 +43,28 @@
   let editingFlavorId = null;
   let inactiveSearchTimer = null;
   let confirmActionResolve = null;
+  const operatorRole = window.ADMIN_OPS_ROLE || "";
+  const movementRequiresPin = operatorRole === "ADMIN";
 
   function setPinState(verified, text) {
     pinVerified = verified;
     pinStatus.textContent = text;
     pinStatus.style.color = verified ? "#14532d" : "#7f1d1d";
-    setStatusBtn.disabled = !verified;
+    if (setStatusBtn) {
+      setStatusBtn.disabled = !verified;
+    }
     if (createFlavorBtn) {
       createFlavorBtn.disabled = !verified;
     }
     if (transferBtn) {
-      transferBtn.disabled = !verified;
+      transferBtn.disabled = movementRequiresPin && !verified;
     }
     if (returnBtn) {
-      returnBtn.disabled = !verified;
+      returnBtn.disabled = movementRequiresPin && !verified;
     }
-    undoBtn.disabled = !verified;
+    if (undoBtn) {
+      undoBtn.disabled = !verified;
+    }
   }
 
   async function verifyPin() {
@@ -89,9 +95,11 @@
   pinInput.addEventListener("input", () => {
     setPinState(false, "Bloqueado");
   });
-  pizzaIdInput.addEventListener("input", () => {
-    pizzaIdInput.value = pizzaIdInput.value.toUpperCase();
-  });
+  if (pizzaIdInput) {
+    pizzaIdInput.addEventListener("input", () => {
+      pizzaIdInput.value = pizzaIdInput.value.toUpperCase();
+    });
+  }
   if (flavorNameInput) {
     flavorNameInput.addEventListener("input", () => {
       flavorNameInput.value = flavorNameInput.value.toUpperCase();
@@ -618,63 +626,67 @@
     });
   }
 
-  setStatusBtn.addEventListener("click", async () => {
-    statusMsg.textContent = "";
-    if (!pinVerified && !(await verifyPin())) {
-      statusMsg.textContent = "No autorizado. Verifica PIN.";
-      return;
-    }
+  if (setStatusBtn && statusMsg && pizzaIdInput && adminStatusSelect) {
+    setStatusBtn.addEventListener("click", async () => {
+      statusMsg.textContent = "";
+      if (!pinVerified && !(await verifyPin())) {
+        statusMsg.textContent = "No autorizado. Verifica PIN.";
+        return;
+      }
 
-    const payload = {
-      id: pizzaIdInput.value.trim().toUpperCase(),
-      to_status: adminStatusSelect.value,
-      pin: pinInput.value.trim(),
-    };
-    if (!payload.id) {
-      statusMsg.textContent = "ID requerido.";
-      return;
-    }
+      const payload = {
+        id: pizzaIdInput.value.trim().toUpperCase(),
+        to_status: adminStatusSelect.value,
+        pin: pinInput.value.trim(),
+      };
+      if (!payload.id) {
+        statusMsg.textContent = "ID requerido.";
+        return;
+      }
 
-    const res = await fetch("/api/admin/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      const res = await fetch("/api/admin/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        statusMsg.textContent = data.error || "Error al aplicar estado";
+        return;
+      }
+      statusMsg.textContent = `OK ${data.pizza.id} => ${data.pizza.status}`;
+      pizzaIdInput.value = "";
     });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      statusMsg.textContent = data.error || "Error al aplicar estado";
-      return;
-    }
-    statusMsg.textContent = `OK ${data.pizza.id} => ${data.pizza.status}`;
-    pizzaIdInput.value = "";
-  });
+  }
 
-  undoBtn.addEventListener("click", async () => {
-    undoMsg.textContent = "";
-    if (!pinVerified && !(await verifyPin())) {
-      undoMsg.textContent = "No autorizado. Verifica PIN.";
-      return;
-    }
+  if (undoBtn && undoMsg) {
+    undoBtn.addEventListener("click", async () => {
+      undoMsg.textContent = "";
+      if (!pinVerified && !(await verifyPin())) {
+        undoMsg.textContent = "No autorizado. Verifica PIN.";
+        return;
+      }
 
-    const payload = {
-      pin: pinInput.value.trim(),
-    };
-    const res = await fetch("/api/admin/undo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      const payload = {
+        pin: pinInput.value.trim(),
+      };
+      const res = await fetch("/api/admin/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        undoMsg.textContent = data.error || "Error en deshacer";
+        return;
+      }
+      undoMsg.textContent = data.message;
     });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      undoMsg.textContent = data.error || "Error en deshacer";
-      return;
-    }
-    undoMsg.textContent = data.message;
-  });
+  }
 
   async function submitLocationMove(url, successFallback) {
     transferMsg.textContent = "";
-    if (!pinVerified && !(await verifyPin())) {
+    if (movementRequiresPin && !pinVerified && !(await verifyPin())) {
       transferMsg.textContent = "No autorizado. Verifica PIN.";
       return;
     }
@@ -682,7 +694,7 @@
       start_id: transferStartId.value.trim().toUpperCase(),
       end_id: transferEndId.value.trim().toUpperCase(),
       note: transferNote ? transferNote.value.trim() : "",
-      pin: pinInput.value.trim(),
+      pin: movementRequiresPin ? pinInput.value.trim() : "",
     };
     if (!payload.start_id || !payload.end_id) {
       transferMsg.textContent = "ID inicial y final son requeridos.";

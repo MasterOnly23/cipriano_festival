@@ -14,6 +14,7 @@ class RoleType(models.TextChoices):
     COCINA = "COCINA", "Cocina"
     VENTAS = "VENTAS", "Ventas"
     OPERADOR = "OPERADOR", "Operador"
+    CAJA_OPERACION = "CAJA OPERACION", "Caja operacion"
     ADMIN = "ADMIN", "Admin"
 
 
@@ -22,6 +23,7 @@ class OperatorRole(models.TextChoices):
     SALES = "SALES", "Sales"
     BATCHES = "BATCHES", "Batches"
     OPERATOR = "OPERATOR", "Operator"
+    CASHIER_OPS = "CASHIER_OPS", "Cashier operations"
     SOCIO = "SOCIO", "Socio"
     ADMIN = "ADMIN", "Admin"
 

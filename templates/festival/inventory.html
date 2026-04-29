@@ -1,0 +1,58 @@
+{% extends "festival/base.html" %}
+{% block title %}Inventario - zentraStock{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Inventario por lotes</h1>
+  <p class="muted">Vista resumida por rangos consecutivos con mismo estado y local.</p>
+
+  <div class="grid three dashboard-filters">
+    <label>
+      Lote o prefijo
+      <input id="inventoryBatch" type="text" placeholder="Ej: D1-DIA" autocapitalize="characters" spellcheck="false">
+    </label>
+    <label>
+      Estado
+      <select id="inventoryStatus">
+        <option value="">Todos</option>
+        <option value="PREPARACION">PREPARACION</option>
+        <option value="LISTA">LISTA</option>
+        <option value="VENDIDA">VENDIDA</option>
+        <option value="CANCELADA">CANCELADA</option>
+        <option value="MERMA">MERMA</option>
+      </select>
+    </label>
+    <label>
+      Local
+      <select id="inventoryLocation">
+        <option value="">Todos</option>
+        <option value="MAIN">Principal</option>
+        <option value="SECONDARY">Secundario</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="filter-actions">
+    <button id="inventoryApplyBtn" type="button" class="btn">Aplicar filtros</button>
+    <button id="inventoryClearBtn" type="button" class="btn btn-alt">Limpiar</button>
+  </div>
+
+  <p id="inventoryMsg" class="muted"></p>
+  <div class="table-wrap">
+    <table class="events-table">
+      <thead>
+        <tr>
+          <th>Lote</th>
+          <th>Rango</th>
+          <th>Cantidad</th>
+          <th>Sabor</th>
+          <th>Estado</th>
+          <th>Local</th>
+        </tr>
+      </thead>
+      <tbody id="inventoryBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<script src="/static/festival/js/inventory.js"></script>
+{% endblock %}

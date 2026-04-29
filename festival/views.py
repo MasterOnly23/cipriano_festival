@@ -98,6 +98,57 @@ def _serialize_dashboard_event(event: ScanEvent) -> dict:
     }
 
 
+def _split_item_id(item_id: str) -> tuple[str, int] | None:
+    try:
+        base, raw_number = (item_id or "").rsplit("-", 1)
+    except ValueError:
+        return None
+    if not base or not raw_number.isdigit():
+        return None
+    return base, int(raw_number)
+
+
+def _serialize_inventory_ranges(items: list[PizzaItem]) -> list[dict]:
+    ranges: list[dict] = []
+    current: dict | None = None
+    previous_number: int | None = None
+
+    for item in items:
+        parsed = _split_item_id(item.id)
+        base = parsed[0] if parsed else item.id
+        number = parsed[1] if parsed else None
+        batch_code = item.batch.code if item.batch else base
+        key = (batch_code, base, item.status, item.current_location, item.flavor)
+
+        is_contiguous = (
+            current is not None
+            and current["key"] == key
+            and number is not None
+            and previous_number is not None
+            and number == previous_number + 1
+        )
+        if not is_contiguous:
+            current = {
+                "key": key,
+                "batch_code": batch_code,
+                "flavor": item.flavor or "-",
+                "status": item.status,
+                "location": item.current_location,
+                "first_id": item.id,
+                "last_id": item.id,
+                "count": 1,
+            }
+            ranges.append(current)
+        else:
+            current["last_id"] = item.id
+            current["count"] += 1
+        previous_number = number
+
+    for row in ranges:
+        row.pop("key", None)
+    return ranges
+
+
 def _group_dashboard_events(events: list[ScanEvent], *, allow_grouping: bool = True) -> list[dict]:
     if not allow_grouping:
         return [_serialize_dashboard_event(event) for event in events]
@@ -319,17 +370,17 @@ def home_view(request):
         return redirect("/sales/")
     if operator.role == "BATCHES":
         return redirect("/batches/")
-    if operator.role in {"OPERATOR", "SOCIO"}:
+    if operator.role in {"OPERATOR", "CASHIER_OPS", "SOCIO"}:
         return redirect("/dashboard/")
     return redirect("/dashboard/")
 
 
-@require_roles_web(["KITCHEN", "SALES", "BATCHES", "OPERATOR", "SOCIO", "ADMIN"])
+@require_roles_web(["KITCHEN", "SALES", "BATCHES", "OPERATOR", "CASHIER_OPS", "SOCIO", "ADMIN"])
 def branding_select_view(request):
     return redirect("/")
 
 
-@require_roles_web(["KITCHEN", "OPERATOR", "ADMIN"])
+@require_roles_web(["KITCHEN", "OPERATOR", "CASHIER_OPS", "ADMIN"])
 def kitchen_view(request):
     return render(
         request,
@@ -344,7 +395,7 @@ def kitchen_view(request):
     )
 
 
-@require_roles_web(["SALES", "OPERATOR", "ADMIN"])
+@require_roles_web(["SALES", "OPERATOR", "CASHIER_OPS", "ADMIN"])
 def sales_view(request):
     return render(
         request,
@@ -359,7 +410,7 @@ def sales_view(request):
     )
 
 
-@require_roles_web(["SALES", "OPERATOR", "SOCIO", "ADMIN"])
+@require_roles_web(["SALES", "OPERATOR", "CASHIER_OPS", "SOCIO", "ADMIN"])
 def dashboard_view(request):
     return render(
         request,
@@ -368,6 +419,18 @@ def dashboard_view(request):
             "operator": request.current_operator,
             "current_branding": request.current_branding,
             "flavors": _active_flavors(request.current_branding),
+        },
+    )
+
+
+@require_roles_web(["KITCHEN", "SALES", "BATCHES", "OPERATOR", "CASHIER_OPS", "SOCIO", "ADMIN"])
+def inventory_view(request):
+    return render(
+        request,
+        "festival/inventory.html",
+        {
+            "operator": request.current_operator,
+            "current_branding": request.current_branding,
         },
     )
 
@@ -385,7 +448,7 @@ def batches_view(request):
     )
 
 
-@require_roles_web(["ADMIN"])
+@require_roles_web(["OPERATOR", "CASHIER_OPS", "ADMIN"])
 def admin_ops_view(request):
     return render(
         request,
@@ -401,7 +464,7 @@ def admin_ops_view(request):
 
 class FlavorAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "SALES", "OPERATOR", "SOCIO", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "SALES", "OPERATOR", "CASHIER_OPS", "SOCIO", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -495,7 +558,7 @@ class FlavorReactivateAPIView(APIView):
 
 class ScanAPIView(APIView):
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["KITCHEN", "SALES", "OPERATOR", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["KITCHEN", "SALES", "OPERATOR", "CASHIER_OPS", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -513,7 +576,7 @@ class ScanAPIView(APIView):
             return Response({"ok": False, "error": "Modo no permitido para este usuario"}, status=403)
         if operator.role == "SALES" and mode != "SALES":
             return Response({"ok": False, "error": "Modo no permitido para este usuario"}, status=403)
-        if operator.role == "OPERATOR" and mode not in {"KITCHEN", "SALES"}:
+        if operator.role in {"OPERATOR", "CASHIER_OPS"} and mode not in {"KITCHEN", "SALES"}:
             return Response({"ok": False, "error": "Modo no permitido para este usuario"}, status=403)
         if operator.role == "ADMIN" and mode not in {"KITCHEN", "SALES"}:
             return Response({"ok": False, "error": "Modo invalido"}, status=400)
@@ -547,7 +610,7 @@ class ScanAPIView(APIView):
 
 class KitchenBulkReadyAPIView(APIView):
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["KITCHEN", "OPERATOR", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["KITCHEN", "OPERATOR", "CASHIER_OPS", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -579,7 +642,7 @@ class KitchenBulkReadyAPIView(APIView):
 
 class WaiterAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN", "SALES", "OPERATOR"])
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "ADMIN", "SALES", "OPERATOR", "CASHIER_OPS"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -774,9 +837,34 @@ class BatchLabelsAPIView(APIView):
         return response
 
 
+class InventoryDataAPIView(APIView):
+    def get(self, request):
+        operator, error, error_status = require_roles_api(
+            request,
+            ["KITCHEN", "SALES", "BATCHES", "OPERATOR", "CASHIER_OPS", "SOCIO", "ADMIN"],
+        )
+        if error:
+            return Response(error, status=error_status)
+        active_branding = get_active_branding(request)
+        batch = (request.GET.get("batch") or "").strip().upper()
+        status_filter = (request.GET.get("status") or "").strip().upper()
+        location = (request.GET.get("location") or "").strip().upper()
+
+        items_qs = PizzaItem.objects.select_related("batch").filter(branding=active_branding).order_by("id")
+        if batch:
+            items_qs = items_qs.filter(id__startswith=batch)
+        if status_filter:
+            items_qs = items_qs.filter(status=status_filter)
+        if location:
+            items_qs = items_qs.filter(current_location=location)
+
+        ranges = _serialize_inventory_ranges(list(items_qs))
+        return Response({"ok": True, "ranges": ranges})
+
+
 class DashboardDataAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["SALES", "OPERATOR", "SOCIO", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["SALES", "OPERATOR", "CASHIER_OPS", "SOCIO", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -924,7 +1012,7 @@ class DashboardDataAPIView(APIView):
 
 class SalesExportXLSAPIView(APIView):
     def get(self, request):
-        operator, error, error_status = require_roles_api(request, ["SALES", "OPERATOR", "SOCIO", "ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["SALES", "OPERATOR", "CASHIER_OPS", "SOCIO", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
@@ -1122,12 +1210,12 @@ class BatchAdminVerifyPinAPIView(APIView):
 
 class TransferToSecondaryAPIView(APIView):
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["OPERATOR", "CASHIER_OPS", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
         pin = (request.data.get("pin") or "").strip()
-        if pin != settings.ADMIN_ACTIONS_PIN:
+        if operator.role == "ADMIN" and pin != settings.ADMIN_ACTIONS_PIN:
             return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
         start_id = _normalize_scanned_code(request.data.get("start_id"))
         end_id = _normalize_scanned_code(request.data.get("end_id"))
@@ -1153,12 +1241,12 @@ class TransferToSecondaryAPIView(APIView):
 
 class ReturnToMainAPIView(APIView):
     def post(self, request):
-        operator, error, error_status = require_roles_api(request, ["ADMIN"])
+        operator, error, error_status = require_roles_api(request, ["OPERATOR", "CASHIER_OPS", "ADMIN"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
         pin = (request.data.get("pin") or "").strip()
-        if pin != settings.ADMIN_ACTIONS_PIN:
+        if operator.role == "ADMIN" and pin != settings.ADMIN_ACTIONS_PIN:
             return Response({"ok": False, "error": "PIN admin invalido"}, status=status.HTTP_400_BAD_REQUEST)
         start_id = _normalize_scanned_code(request.data.get("start_id"))
         end_id = _normalize_scanned_code(request.data.get("end_id"))
