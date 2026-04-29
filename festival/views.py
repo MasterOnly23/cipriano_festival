@@ -672,19 +672,56 @@ class WaiterAPIView(APIView):
         )
 
 
+class WaiterGroupedAPIView(APIView):
+    def get(self, request):
+        operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN"])
+        if error:
+            return Response(error, status=error_status)
+
+        query = (request.GET.get("q") or "").strip()
+        brandings = [BrandingType.FESTIVAL, BrandingType.BURGERS]
+        waiters_qs = Waiter.objects.filter(is_active=True, branding__in=brandings).order_by("branding", "name", "code")
+        if query:
+            waiters_qs = waiters_qs.filter(Q(code__icontains=query) | Q(name__icontains=query))
+        waiters_by_branding = list(waiters_qs)
+
+        grouped = []
+        labels = {
+            BrandingType.FESTIVAL: "Cipriano Festival",
+            BrandingType.BURGERS: "DON",
+        }
+        for branding in brandings:
+            waiters = [waiter for waiter in waiters_by_branding if waiter.branding == branding]
+            grouped.append(
+                {
+                    "branding": branding,
+                    "label": labels.get(branding, branding),
+                    "waiters": WaiterSerializer(waiters, many=True).data,
+                }
+            )
+
+        return Response({"ok": True, "groups": grouped})
+
+
 class WaiterLabelsAPIView(APIView):
     def get(self, request):
         operator, error, error_status = require_roles_api(request, ["BATCHES", "OPERATOR", "ADMIN", "SALES"])
         if error:
             return Response(error, status=error_status)
         active_branding = get_active_branding(request)
+        requested_branding = (request.GET.get("branding") or "").strip().upper()
+        target_branding = active_branding
+        if requested_branding in {BrandingType.FESTIVAL, BrandingType.BURGERS}:
+            if operator.role not in {"BATCHES", "OPERATOR", "ADMIN"}:
+                return Response({"ok": False, "error": "No autorizado"}, status=status.HTTP_403_FORBIDDEN)
+            target_branding = requested_branding
 
         codes_raw = _normalize_scanned_code(request.GET.get("codes"))
         if not codes_raw:
             return Response({"ok": False, "error": "codes requerido"}, status=status.HTTP_400_BAD_REQUEST)
         codes = [code.strip() for code in codes_raw.split(",") if code.strip()]
         waiters = list(
-            Waiter.objects.filter(code__in=codes, is_active=True, branding=active_branding).order_by("name", "code")
+            Waiter.objects.filter(code__in=codes, is_active=True, branding=target_branding).order_by("name", "code")
         )
         if not waiters:
             return Response({"ok": False, "error": "Meseros no encontrados"}, status=status.HTTP_404_NOT_FOUND)

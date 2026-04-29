@@ -19,6 +19,13 @@
   const createWaiterBtn = document.getElementById("createWaiterBtn");
   const waiterMsg = document.getElementById("waiterMsg");
   const waiterPdfLink = document.getElementById("waiterPdfLink");
+  const showWaiterHistoryBtn = document.getElementById("showWaiterHistoryBtn");
+  const waiterHistoryModal = document.getElementById("waiterHistoryModal");
+  const closeWaiterHistoryModalBtn = document.getElementById("closeWaiterHistoryModalBtn");
+  const closeWaiterHistoryFooterBtn = document.getElementById("closeWaiterHistoryFooterBtn");
+  const waiterHistorySearchInput = document.getElementById("waiterHistorySearchInput");
+  const waiterHistoryMsg = document.getElementById("waiterHistoryMsg");
+  const waiterHistoryList = document.getElementById("waiterHistoryList");
   const showBatchHistoryBtn = document.getElementById("showBatchHistoryBtn");
   const batchHistoryModal = document.getElementById("batchHistoryModal");
   const closeBatchHistoryModalBtn = document.getElementById("closeBatchHistoryModalBtn");
@@ -38,6 +45,16 @@
   }
   let startNumberUnlocked = false;
   let batchHistorySearchTimer = null;
+  let waiterHistorySearchTimer = null;
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
   function getCookie(name) {
     const cookies = document.cookie ? document.cookie.split(";") : [];
@@ -135,6 +152,51 @@
       .join("");
   }
 
+  function renderWaiterHistory(groups) {
+    if (!waiterHistoryList) {
+      return;
+    }
+    if (!Array.isArray(groups) || groups.length === 0) {
+      waiterHistoryList.innerHTML = `<div class="history-empty">No hay meseros para este filtro.</div>`;
+      return;
+    }
+
+    const html = groups
+      .map((group) => {
+        const waiters = Array.isArray(group.waiters) ? group.waiters : [];
+        const waiterCards = waiters.length
+          ? waiters
+              .map((waiter) => {
+                const code = escapeHtml(waiter.code || "");
+                const name = escapeHtml(waiter.name || "");
+                return `
+                  <article class="history-card">
+                    <div class="history-card-main">
+                      <strong>${code}</strong>
+                      <span>${name}</span>
+                    </div>
+                    <div class="history-card-actions">
+                      <a class="btn btn-alt btn-small" href="/api/waiters/labels.pdf?codes=${encodeURIComponent(waiter.code || "")}&branding=${encodeURIComponent(group.branding || "")}" target="_blank" rel="noopener noreferrer">QR</a>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")
+          : `<div class="history-empty">No hay meseros en este branding.</div>`;
+        return `
+          <section class="history-group">
+            <div class="history-group-head">
+              <strong>${escapeHtml(group.label || group.branding || "")}</strong>
+              <span>${waiters.length} mesero(s)</span>
+            </div>
+            <div class="history-list">${waiterCards}</div>
+          </section>
+        `;
+      })
+      .join("");
+    waiterHistoryList.innerHTML = html;
+  }
+
   async function loadBatchHistory(query = "") {
     if (!batchHistoryMsg || !batchHistoryList) {
       return;
@@ -150,6 +212,27 @@
     }
     renderBatchHistory(data.batches || []);
     batchHistoryMsg.textContent = `${(data.batches || []).length} lote(s) encontrados.`;
+  }
+
+  async function loadWaiterHistory(query = "") {
+    if (!waiterHistoryMsg || !waiterHistoryList) {
+      return;
+    }
+    waiterHistoryMsg.textContent = "Cargando meseros...";
+    const qs = query ? `?q=${encodeURIComponent(query.trim().toUpperCase())}` : "";
+    const res = await fetch(`/api/waiters/grouped${qs}`);
+    const data = await res.json().catch(() => ({
+      ok: false,
+      error: "Error del servidor al cargar meseros",
+    }));
+    if (!res.ok || !data.ok) {
+      waiterHistoryMsg.textContent = data.error || "Error al cargar meseros";
+      renderWaiterHistory([]);
+      return;
+    }
+    renderWaiterHistory(data.groups || []);
+    const total = (data.groups || []).reduce((sum, group) => sum + ((group.waiters || []).length), 0);
+    waiterHistoryMsg.textContent = `${total} mesero(s) encontrados.`;
   }
 
   function closeBatchHistoryModal() {
@@ -171,6 +254,27 @@
       window.setTimeout(() => batchHistorySearchInput.focus(), 40);
     }
     await loadBatchHistory("");
+  }
+
+  function closeWaiterHistoryModal() {
+    if (!waiterHistoryModal) {
+      return;
+    }
+    waiterHistoryModal.classList.add("hidden");
+    waiterHistoryModal.setAttribute("aria-hidden", "true");
+  }
+
+  async function openWaiterHistoryModal() {
+    if (!waiterHistoryModal) {
+      return;
+    }
+    waiterHistoryModal.classList.remove("hidden");
+    waiterHistoryModal.setAttribute("aria-hidden", "false");
+    if (waiterHistorySearchInput) {
+      waiterHistorySearchInput.value = "";
+      window.setTimeout(() => waiterHistorySearchInput.focus(), 40);
+    }
+    await loadWaiterHistory("");
   }
 
   flavorName.addEventListener("change", syncPrefixFromFlavor);
@@ -232,9 +336,41 @@
       }, 180);
     });
   }
+  if (showWaiterHistoryBtn) {
+    showWaiterHistoryBtn.addEventListener("click", async () => {
+      await openWaiterHistoryModal();
+    });
+  }
+  if (closeWaiterHistoryModalBtn) {
+    closeWaiterHistoryModalBtn.addEventListener("click", closeWaiterHistoryModal);
+  }
+  if (closeWaiterHistoryFooterBtn) {
+    closeWaiterHistoryFooterBtn.addEventListener("click", closeWaiterHistoryModal);
+  }
+  if (waiterHistoryModal) {
+    waiterHistoryModal.addEventListener("click", (event) => {
+      if (event.target.dataset.closeWaiterHistoryModal === "1") {
+        closeWaiterHistoryModal();
+      }
+    });
+  }
+  if (waiterHistorySearchInput) {
+    waiterHistorySearchInput.addEventListener("input", () => {
+      waiterHistorySearchInput.value = waiterHistorySearchInput.value.toUpperCase();
+      if (waiterHistorySearchTimer) {
+        clearTimeout(waiterHistorySearchTimer);
+      }
+      waiterHistorySearchTimer = window.setTimeout(() => {
+        loadWaiterHistory(waiterHistorySearchInput.value);
+      }, 180);
+    });
+  }
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && batchHistoryModal && !batchHistoryModal.classList.contains("hidden")) {
       closeBatchHistoryModal();
+    }
+    if (event.key === "Escape" && waiterHistoryModal && !waiterHistoryModal.classList.contains("hidden")) {
+      closeWaiterHistoryModal();
     }
   });
 
@@ -330,6 +466,9 @@
       waiterPdfLink.textContent = `Descargar QR ${data.waiter.code}`;
       waiterPdfLink.classList.remove("hidden");
       waiterName.value = "";
+      if (waiterHistoryModal && !waiterHistoryModal.classList.contains("hidden")) {
+        await loadWaiterHistory(waiterHistorySearchInput ? waiterHistorySearchInput.value : "");
+      }
     });
   }
 })();

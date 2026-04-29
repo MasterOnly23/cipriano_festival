@@ -79,8 +79,13 @@
 </div>
 
 <section class="panel">
-  <h2>Meseros (QR)</h2>
-  <p class="muted">Crea un mesero y descarga su QR unico. El codigo del mesero sera corto, de 4 digitos, para escribirlo rapido si hace falta.</p>
+  <div class="section-head">
+    <div>
+      <h2>Meseros (QR)</h2>
+      <p class="muted">Crea un mesero y descarga su QR unico. El codigo del mesero sera corto, de 4 digitos, para escribirlo rapido si hace falta.</p>
+    </div>
+    <button id="showWaiterHistoryBtn" type="button" class="btn btn-alt btn-inline">Ver meseros creados</button>
+  </div>
   <div class="grid three">
     <label>
       Nombre mesero
@@ -98,5 +103,27 @@
   <p><a id="waiterPdfLink" href="#" target="_blank" class="hidden">Descargar QR mesero</a></p>
 </section>
 
-<script src="/static/festival/js/batches.js"></script>
+<div id="waiterHistoryModal" class="modal-shell hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close-waiter-history-modal="1"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="waiterHistoryTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="waiterHistoryTitle">Meseros creados</h3>
+        <p class="muted modal-subtitle">Busca por codigo o nombre. Se listan separados por branding.</p>
+      </div>
+      <button id="closeWaiterHistoryModalBtn" type="button" class="modal-close" aria-label="Cerrar">×</button>
+    </div>
+    <label>
+      Filtrar
+      <input id="waiterHistorySearchInput" type="text" placeholder="Ej: 0044 o nombre del mesero" autocapitalize="characters" spellcheck="false">
+    </label>
+    <p id="waiterHistoryMsg" class="muted"></p>
+    <div id="waiterHistoryList" class="history-list"></div>
+    <div class="modal-actions">
+      <button id="closeWaiterHistoryFooterBtn" type="button" class="btn btn-alt">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/festival/js/batches.js?v=waiters-v1"></script>
 {% endblock %}

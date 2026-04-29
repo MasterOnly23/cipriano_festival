@@ -27,6 +27,7 @@ urlpatterns = [
     path("api/dashboard/sales-export.xls", views.SalesExportXLSAPIView.as_view(), name="api-dashboard-sales-export"),
     path("api/inventory", views.InventoryDataAPIView.as_view(), name="api-inventory"),
     path("api/waiters", views.WaiterAPIView.as_view(), name="api-waiters"),
+    path("api/waiters/grouped", views.WaiterGroupedAPIView.as_view(), name="api-waiters-grouped"),
     path("api/waiters/labels.pdf", views.WaiterLabelsAPIView.as_view(), name="api-waiters-labels"),
     path("api/batches/generate", views.BatchGenerateAPIView.as_view(), name="api-batches-generate"),
     path("api/batches", views.BatchListAPIView.as_view(), name="api-batches-list"),
