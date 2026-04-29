@@ -24,6 +24,7 @@
   const closeWaiterHistoryModalBtn = document.getElementById("closeWaiterHistoryModalBtn");
   const closeWaiterHistoryFooterBtn = document.getElementById("closeWaiterHistoryFooterBtn");
   const waiterHistorySearchInput = document.getElementById("waiterHistorySearchInput");
+  const waiterHistoryBulkActions = document.getElementById("waiterHistoryBulkActions");
   const waiterHistoryMsg = document.getElementById("waiterHistoryMsg");
   const waiterHistoryList = document.getElementById("waiterHistoryList");
   const showBatchHistoryBtn = document.getElementById("showBatchHistoryBtn");
@@ -156,14 +157,32 @@
     if (!waiterHistoryList) {
       return;
     }
+    if (waiterHistoryBulkActions) {
+      waiterHistoryBulkActions.innerHTML = "";
+    }
     if (!Array.isArray(groups) || groups.length === 0) {
       waiterHistoryList.innerHTML = `<div class="history-empty">No hay meseros para este filtro.</div>`;
       return;
     }
 
+    if (waiterHistoryBulkActions) {
+      waiterHistoryBulkActions.innerHTML = groups
+        .filter((group) => Array.isArray(group.waiters) && group.waiters.length > 0)
+        .map((group) => {
+          const groupBranding = encodeURIComponent(group.branding || "");
+          return `
+            <a class="btn btn-alt btn-small" href="/api/waiters/labels.pdf?branding=${groupBranding}" target="_blank" rel="noopener noreferrer">
+              Descargar todos los QR de ${escapeHtml(group.label || group.branding || "")}
+            </a>
+          `;
+        })
+        .join("");
+    }
+
     const html = groups
       .map((group) => {
         const waiters = Array.isArray(group.waiters) ? group.waiters : [];
+        const groupBranding = encodeURIComponent(group.branding || "");
         const waiterCards = waiters.length
           ? waiters
               .map((waiter) => {
@@ -176,7 +195,7 @@
                       <span>${name}</span>
                     </div>
                     <div class="history-card-actions">
-                      <a class="btn btn-alt btn-small" href="/api/waiters/labels.pdf?codes=${encodeURIComponent(waiter.code || "")}&branding=${encodeURIComponent(group.branding || "")}" target="_blank" rel="noopener noreferrer">QR</a>
+                      <a class="btn btn-alt btn-small" href="/api/waiters/labels.pdf?codes=${encodeURIComponent(waiter.code || "")}&branding=${groupBranding}" target="_blank" rel="noopener noreferrer">QR</a>
                     </div>
                   </article>
                 `;
@@ -186,8 +205,10 @@
         return `
           <section class="history-group">
             <div class="history-group-head">
-              <strong>${escapeHtml(group.label || group.branding || "")}</strong>
-              <span>${waiters.length} mesero(s)</span>
+              <div>
+                <strong>${escapeHtml(group.label || group.branding || "")}</strong>
+                <span>${waiters.length} mesero(s)</span>
+              </div>
             </div>
             <div class="history-list">${waiterCards}</div>
           </section>

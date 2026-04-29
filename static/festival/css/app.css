@@ -747,6 +747,13 @@ th {
   align-items: center;
 }
 
+.history-bulk-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .history-group {
   display: grid;
   gap: 10px;
