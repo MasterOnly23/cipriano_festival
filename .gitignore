@@ -6,6 +6,7 @@ venv/
 .env
 .env.local
 LOCAL_CREDENTIALS.md
+RESET_PRODUCTION_DB.sql
 
 # Python cache
 __pycache__/
